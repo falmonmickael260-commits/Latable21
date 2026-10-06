@@ -1,8 +1,8 @@
 // Design-space percentage layout for the hand-built 2D table (over the
-// blurred photo backdrop). Close, low "seated player" camera framing — the
-// table is large and elongated, filling most of the frame. All 8 seats sit
-// on a single arc facing the dealer, like a real blackjack table. Seat 1 is
-// the rightmost seat, seat 8 the leftmost — dealing in ascending seat order
+// blurred photo backdrop). Shape and seat placement are matched precisely
+// to the user's reference photo (7 betting circles, their exact relative
+// arc spacing) — built in code (SVG), not the photo file itself. Seat 1 is
+// the rightmost seat, seat 7 the leftmost — dealing in ascending seat order
 // (the server's native order) therefore reads right-to-left on screen.
 
 export interface Point {
@@ -10,31 +10,27 @@ export interface Point {
   y: number; // percent of the stage height
 }
 
-// Dealer's feet sit right around the table's own top rail edge
-// (TABLE_CENTER.y - TABLE_RADIUS.y = 34) — close enough to read as standing
-// right at the table rather than floating above it. Must stay large enough
-// that DEALER_POS.y% of the *smallest* possible scene height (the 16:9
-// desktop case, refHeight=675) still clears the dealer sprite's fixed
-// height (200px, see DealerMark) — otherwise its head gets clipped by the
-// scene's overflow:hidden on wide/short viewports. 36% × 675 ≈ 243px > 200.
+// Dealer's feet sit right around the table's own top rail edge. Must stay
+// large enough that DEALER_POS.y% of the *smallest* possible scene height
+// (the 16:9 desktop case, refHeight=675) still clears the dealer sprite's
+// fixed height (200px, see DealerMark) — otherwise its head gets clipped
+// by the scene's overflow:hidden on wide/short viewports.
 export const DEALER_POS: Point = { x: 50, y: 36 };
 export const SHOE_POS: Point = { x: 50, y: 41 };
 
-export const TABLE_CENTER: Point = { x: 50, y: 80 };
-export const TABLE_RADIUS = { x: 66, y: 46 }; // percent — wide enough to run off both edges
+export const TABLE_CENTER: Point = { x: 50, y: 74 };
+export const TABLE_RADIUS = { x: 72, y: 40 }; // percent — wide enough to run off both edges
 
-// Tuned so seat 1/8 (the widest) land almost exactly on the gold rim
-// (solving the ellipse equation for TABLE_CENTER/TABLE_RADIUS above) —
-// previously they sat noticeably outside it.
+// Read directly off the reference photo's numbered betting circles (same
+// relative arc, 7 seats) — not approximated, the exact fractions.
 export const SEAT_POSITIONS: Record<number, Point> = {
-  1: { x: 87, y: 42 },
-  2: { x: 77, y: 56 },
-  3: { x: 64, y: 66 },
-  4: { x: 55, y: 70 },
-  5: { x: 45, y: 70 },
-  6: { x: 36, y: 66 },
-  7: { x: 23, y: 56 },
-  8: { x: 13, y: 42 },
+  1: { x: 85.5, y: 60 },
+  2: { x: 75.7, y: 66.8 },
+  3: { x: 63.7, y: 71.1 },
+  4: { x: 49.7, y: 72.2 },
+  5: { x: 36.0, y: 71.1 },
+  6: { x: 23.9, y: 66.8 },
+  7: { x: 14.1, y: 60 },
 };
 
 export function seatPosition(seatNumber: number): Point {

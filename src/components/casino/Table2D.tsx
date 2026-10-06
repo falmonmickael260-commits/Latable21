@@ -58,15 +58,15 @@ export function Table2D() {
         <ellipse cx="200" cy="130" rx="179" ry="111" fill="url(#felt)" />
         <ellipse cx="200" cy="130" rx="179" ry="111" fill="none" stroke="#000" strokeOpacity="0.25" strokeWidth="1" />
 
-        {/* Pushed well below the seat band (which occupies roughly the top
-            third of the felt) so the brand block never collides with the
-            seat circles above it. */}
+        {/* Pushed below the (now higher/tighter) seat band so the brand
+            block never collides with the seat circles above it — the
+            table's flatter stretch (TABLE_RADIUS) moved that band up. */}
         <text
           x="200"
-          y="138"
+          y="143"
           textAnchor="middle"
           fontFamily="var(--font-display), Cinzel, serif"
-          fontSize="28"
+          fontSize="26"
           fontWeight={700}
           letterSpacing="6"
           fill="#e8cf9a"
@@ -76,10 +76,10 @@ export function Table2D() {
         </text>
         <text
           x="200"
-          y="164"
+          y="166"
           textAnchor="middle"
           fontFamily="var(--font-display), Cinzel, serif"
-          fontSize="17"
+          fontSize="16"
           fontWeight={700}
           letterSpacing="5"
           fill="#c9a24b"
@@ -92,7 +92,7 @@ export function Table2D() {
           y="182"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
-          fontSize="9"
+          fontSize="8"
           letterSpacing="4"
           fill="#e8cf9a"
           fillOpacity="0.38"
@@ -100,19 +100,19 @@ export function Table2D() {
           BLACKJACK EUROPÉEN
         </text>
 
-        <text x="200" y="206" textAnchor="middle" fontSize="16" fillOpacity="0.32">
+        <text x="200" y="198" textAnchor="middle" fontSize="14" fillOpacity="0.32">
           <tspan fill="#e8cf9a">♠</tspan>
-          <tspan dx="12" fill="#8a3b44">♥</tspan>
-          <tspan dx="12" fill="#e8cf9a">♣</tspan>
-          <tspan dx="12" fill="#8a3b44">♦</tspan>
+          <tspan dx="10" fill="#8a3b44">♥</tspan>
+          <tspan dx="10" fill="#e8cf9a">♣</tspan>
+          <tspan dx="10" fill="#8a3b44">♦</tspan>
         </text>
 
         <text
           x="200"
-          y="226"
+          y="212"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
-          fontSize="8"
+          fontSize="7"
           letterSpacing="2"
           fill="#cfc3aa"
           fillOpacity="0.38"
