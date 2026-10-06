@@ -4,10 +4,11 @@ import { useMemo } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useCasinoSocket } from "@/lib/use-casino-socket";
-import { useImageBox } from "@/hooks/useImageBox";
-import { DEALER_CARD_FRACTION, SEAT_FRACTIONS, SHOE_FRACTION, seatFraction } from "@/lib/table-layout";
+import { useElementSize } from "@/hooks/useElementSize";
+import { DEALER_POS, SHOE_POS, seatPosition } from "@/lib/table-layout";
 import { SEAT_COUNT } from "@/lib/types";
 import { Seat } from "./Seat";
+import { Table2D } from "./Table2D";
 import { DealerMark } from "./DealerMark";
 import { LogoPanel } from "./LogoPanel";
 import { HUD } from "./HUD";
@@ -43,27 +44,18 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
     clearError,
   } = useCasinoSocket(pseudo);
 
-  const { ref: tableImgRef, box: tableBox } = useImageBox<HTMLImageElement>();
-
-  // Every anchor (seats, dealer, cards) is computed from the photo table's
-  // own live-measured pixel box + a fraction read off its baked-in badges —
-  // so alignment holds regardless of viewport size/aspect.
-  const pointFor = useMemo(() => {
-    return (fx: number, fy: number) => ({ x: tableBox.left + fx * tableBox.width, y: tableBox.top + fy * tableBox.height });
-  }, [tableBox]);
+  const { ref: stageRef, size } = useElementSize<HTMLDivElement>();
 
   const flightFor = useMemo(() => {
-    const shoe = pointFor(SHOE_FRACTION.fx, SHOE_FRACTION.fy);
     return (targetSeat: number | "dealer"): FlightVector => {
-      const frac = targetSeat === "dealer" ? DEALER_CARD_FRACTION : seatFraction(targetSeat);
-      const dest = pointFor(frac.fx, frac.fy);
-      return { dx: shoe.x - dest.x, dy: shoe.y - dest.y };
+      const dest = targetSeat === "dealer" ? DEALER_POS : seatPosition(targetSeat);
+      const dx = ((SHOE_POS.x - dest.x) / 100) * size.width;
+      const dy = ((SHOE_POS.y - dest.y) / 100) * size.height;
+      return { dx, dy };
     };
-  }, [pointFor]);
+  }, [size.width, size.height]);
 
   const dealerActive = table?.phase === "dealer_reveal" || table?.phase === "dealer_turns";
-  const dealerPoint = pointFor(0.5, 0);
-  const dealerCardPoint = pointFor(DEALER_CARD_FRACTION.fx, DEALER_CARD_FRACTION.fy);
 
   if (!table || !player) {
     return (
@@ -99,12 +91,12 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
         fill
         priority
         className="object-cover scale-110"
-        style={{ objectPosition: "center 22%", filter: "blur(6px) brightness(0.7) saturate(1.05)" }}
+        style={{ objectPosition: "center 22%", filter: "blur(5px) brightness(0.75) saturate(1.05)" }}
         sizes="100vw"
       />
       <div
         className="absolute inset-0"
-        style={{ background: "linear-gradient(180deg, rgba(3,4,5,0.6) 0%, rgba(3,4,5,0.2) 30%, rgba(3,4,5,0.5) 100%)" }}
+        style={{ background: "linear-gradient(180deg, rgba(3,4,5,0.55) 0%, rgba(3,4,5,0.25) 28%, rgba(3,4,5,0.88) 100%)" }}
       />
 
       <HUD player={player} connected={connected} />
@@ -127,36 +119,23 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
         </span>
       </div>
 
-      <div className="absolute inset-0">
-        {/* The real table surface — every other element on it is anchored
-            to this image's own live-measured box. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          ref={tableImgRef}
-          src="/images/table-blackjack.png"
-          alt=""
-          draggable={false}
-          className="absolute left-1/2 bottom-0 -translate-x-1/2 pointer-events-none select-none"
-          style={{ height: "min(64vh, 640px)", width: "auto", maxWidth: "none" }}
-        />
-
+      <div ref={stageRef} className="absolute inset-0">
         <div
-          className="absolute -translate-x-1/2 -translate-y-full"
-          style={{ left: dealerPoint.x, top: dealerPoint.y - tableBox.height * 0.1 }}
+          className="absolute -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y - 17}%` }}
         >
           <LogoPanel />
         </div>
 
-        <div
-          className="absolute -translate-x-1/2 -translate-y-full"
-          style={{ left: dealerPoint.x, top: dealerPoint.y }}
-        >
+        <Table2D />
+
+        <div className="absolute -translate-x-1/2 -translate-y-full" style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y}%` }}>
           <DealerMark active={dealerActive} phase={table.phase} />
         </div>
 
         <div
-          className="absolute -translate-x-1/2 -translate-y-1/2 flex gap-1 -space-x-6"
-          style={{ left: dealerCardPoint.x, top: dealerCardPoint.y }}
+          className="absolute -translate-x-1/2 flex gap-1 -space-x-6"
+          style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y + 8}%` }}
         >
           {table.dealer.cards.map((card, i) => (
             <div key={card.id} style={{ zIndex: i }}>
@@ -181,15 +160,14 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
 
         {Array.from({ length: SEAT_COUNT }, (_, i) => i + 1).map((seatNumber) => {
           const seat = table.seats.find((s) => s.seatNumber === seatNumber)!;
-          const frac = SEAT_FRACTIONS[seatNumber];
-          const pos = pointFor(frac.fx, frac.fy);
+          const pos = seatPosition(seatNumber);
           const dimmed =
             table.phase === "player_turns" && table.activeSeat !== null && table.activeSeat !== seatNumber;
           return (
             <div
               key={seatNumber}
               className="absolute -translate-x-1/2 -translate-y-1/2 transition-opacity duration-500"
-              style={{ left: pos.x, top: pos.y, opacity: dimmed ? 0.55 : 1 }}
+              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: dimmed ? 0.55 : 1 }}
             >
               <Seat
                 seat={seat}

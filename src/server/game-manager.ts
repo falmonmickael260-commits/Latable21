@@ -174,16 +174,18 @@ export class GameManager {
     this.dealOrder = 0;
     this.publish();
 
-    // Pass 1: one card to each active seat, left to right.
+    // Pass 1: one card to each active seat, in seat order.
     for (const seat of seats) {
       await this.dealTo(seat, 0);
     }
-    // Pass 2: second card to each active seat, left to right.
-    for (const seat of seats) {
-      await this.dealTo(seat, 0);
-    }
-    // Dealer's single up-card (European rule: hole card comes later).
+    // Dealer's single up-card comes right after pass 1, before anyone's
+    // second card (European rule: the hole card comes later).
     await this.dealToDealer();
+    // Pass 2: second card to each active seat, in seat order. The dealer
+    // does not receive a second card here.
+    for (const seat of seats) {
+      await this.dealTo(seat, 0);
+    }
 
     // Mark two-card 21s as already settled-pending (no further action).
     for (const seat of seats) {
