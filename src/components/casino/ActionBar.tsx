@@ -27,7 +27,11 @@ export function ActionBar({ seatNumber, handIndex, hand, balance, onAction }: Ac
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 24 }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2"
+        // Docked to the bottom of the actual viewport (not the scaled
+        // table stage) on phones, same reasoning as BetPanel — floating
+        // centered over a short mobile stage used to land on top of the
+        // felt/cards instead of below them.
+        className="fixed sm:absolute inset-x-0 sm:inset-x-auto bottom-0 sm:bottom-6 left-0 sm:left-1/2 sm:-translate-x-1/2 z-30 flex flex-col items-center gap-2 px-3 pt-3 sm:pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-0 rounded-t-2xl sm:rounded-none bg-[rgba(5,8,10,0.85)] sm:bg-transparent"
       >
         <span
           className="text-[11px] uppercase tracking-[0.25em] px-3 py-1 rounded-full"
@@ -35,7 +39,10 @@ export function ActionBar({ seatNumber, handIndex, hand, balance, onAction }: Ac
         >
           À vous de jouer — Place {seatNumber}
         </span>
-        <div className="flex gap-3 rounded-2xl p-3" style={{ background: "rgba(5,8,10,0.55)", backdropFilter: "blur(6px)" }}>
+        <div
+          className="flex flex-wrap justify-center gap-2 sm:gap-3 rounded-2xl p-2.5 sm:p-3 max-w-[420px] sm:max-w-none mx-auto"
+          style={{ background: "rgba(5,8,10,0.55)", backdropFilter: "blur(6px)" }}
+        >
           <ActionButton label="TIRER" tone="gold" onClick={() => onAction("hit")} />
           <ActionButton label="RESTER" tone="neutral" onClick={() => onAction("stand")} />
           <ActionButton label="DOUBLE" tone="wine" disabled={!canDouble} onClick={() => onAction("double")} />

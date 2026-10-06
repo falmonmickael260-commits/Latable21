@@ -31,7 +31,7 @@ export function ActionButton({ label, sub, disabled, tone = "neutral", onClick }
       }}
       whileHover={disabled ? undefined : { y: -3 }}
       whileTap={disabled ? undefined : { y: 1, scale: 0.97 }}
-      className="relative flex flex-col items-center justify-center rounded-xl px-5 py-3 min-w-[92px] disabled:opacity-35 disabled:cursor-not-allowed transition-opacity"
+      className="relative flex flex-col items-center justify-center rounded-xl px-3.5 py-2.5 sm:px-5 sm:py-3 min-w-[72px] sm:min-w-[92px] disabled:opacity-35 disabled:cursor-not-allowed transition-opacity"
       style={{
         background: palette.bg,
         color: palette.text,

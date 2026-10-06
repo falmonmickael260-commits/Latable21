@@ -34,7 +34,15 @@ const PHASE_LABEL: Record<string, string> = {
 // actually renders at. That's what makes the table (and everything on it)
 // scale smoothly from a small phone up to a wide desktop instead of seats
 // and cards staying a constant, viewport-breaking pixel size.
-const REF_WIDTH = 1200;
+//
+// A single fixed 1200 reference width made mobile scale factors crater to
+// ~0.3 (375px stage / 1200) — cards/badges authored at a readable px size
+// rendered at a third of that, unreadable on a phone. Shrinking the
+// reference width on narrow stages keeps the scale factor in a sane range
+// (~0.6+) so fixed-px UI stays legible, while wide/desktop stages are
+// unaffected (clamped at the original 1200).
+const REF_WIDTH_MAX = 1200;
+const REF_WIDTH_MIN = 620;
 
 // The stage's own aspect ratio adapts to the available space instead of
 // staying locked at 16:9 everywhere: capped at 16:9 on wide/landscape
@@ -42,8 +50,10 @@ const REF_WIDTH = 1200;
 // narrow as MIN_RATIO on tall/portrait screens (a phone) so the table
 // actually grows to use the available height instead of shrinking to a
 // thin letterboxed strip with the photo background filling the rest.
+// Kept well short of square so the table doesn't balloon to fill the
+// entire phone screen, crowding out the betting/action panels below it.
 const MAX_RATIO = 16 / 9;
-const MIN_RATIO = 1.05;
+const MIN_RATIO = 1.3;
 
 export function CasinoTable({ pseudo }: { pseudo: string }) {
   const {
@@ -77,6 +87,8 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
     stageHeight = outerSize.height;
     stageWidth = outerSize.height * boxRatio;
   }
+  const REF_WIDTH =
+    outerSize.width > 0 ? Math.min(REF_WIDTH_MAX, Math.max(REF_WIDTH_MIN, outerSize.width * 1.15)) : REF_WIDTH_MAX;
   // The reference canvas's own height adapts with boxRatio too (staying
   // REF_WIDTH wide), so the scaled scene exactly fills a taller/narrower
   // stage on a portrait screen instead of only filling its top portion.
@@ -93,7 +105,7 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
       const dy = ((SHOE_POS.y - dest.y) / 100) * refHeight;
       return { dx, dy };
     };
-  }, [refHeight]);
+  }, [refHeight, REF_WIDTH]);
 
   const dealerActive = table?.phase === "dealer_reveal" || table?.phase === "dealer_turns";
 
@@ -153,8 +165,13 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
         </motion.div>
       )}
 
-      <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10">
-        <span className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "var(--cream-dim)" }}>
+      {/* Sits below the HUD row instead of overlapping it — on a narrow
+          phone the HUD's balance/bonus pill wraps to two lines and reaches
+          down far enough to collide with this if it sits at the same
+          top offset used on desktop. Width is capped and centered text
+          truncates instead of spilling under the HUD pills either side. */}
+      <div className="absolute top-20 sm:top-16 left-1/2 -translate-x-1/2 z-10 w-[70vw] sm:w-auto text-center">
+        <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.3em] whitespace-nowrap" style={{ color: "var(--cream-dim)" }}>
           {PHASE_LABEL[table.phase] ?? ""} · Manche {table.roundNumber}
         </span>
       </div>
@@ -163,8 +180,11 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
           centered/letterboxed — every seat/card/dealer position is tuned
           as a percentage of THIS box, so it must never stretch to an
           arbitrary viewport shape (a very wide/short window was pushing
-          seat badges outside the drawn table). */}
-      <div ref={outerRef} className="absolute inset-0 flex items-center justify-center p-3">
+          seat badges outside the drawn table). Bottom padding on mobile
+          reserves room for the fixed control dock (BetPanel/ActionBar)
+          docked to the viewport there, so the table itself never sits
+          underneath it. */}
+      <div ref={outerRef} className="absolute inset-0 flex items-center justify-center p-3 pb-[172px] sm:pb-3">
         <div className="relative" style={{ width: stageWidth || "100%", height: stageHeight || "100%" }}>
           {/* Scaled scene: fixed-px sizing throughout (seats, cards, badges)
               rendered at the reference canvas size, then scaled as one unit

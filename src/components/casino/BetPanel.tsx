@@ -25,13 +25,17 @@ export function BetPanel({ mySeats, balance, onPlaceBet, onClearBet, onLeaveSeat
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 rounded-2xl p-4"
-      style={{ background: "rgba(5,8,10,0.6)", border: "1px solid rgba(217,184,118,0.25)", backdropFilter: "blur(6px)" }}
+      // Docked to the bottom of the actual viewport (not the scaled table
+      // stage) on phones — a floating panel centered on a short, letterboxed
+      // mobile stage used to land mid-screen over the felt/cards. From `sm`
+      // up it reverts to floating over the stage like before.
+      className="fixed sm:absolute inset-x-0 sm:inset-x-auto bottom-0 sm:bottom-6 left-0 sm:left-1/2 sm:-translate-x-1/2 z-30 flex flex-col items-center gap-3 rounded-t-2xl sm:rounded-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4"
+      style={{ background: "rgba(5,8,10,0.85)", border: "1px solid rgba(217,184,118,0.25)", backdropFilter: "blur(6px)" }}
     >
       <span className="text-[11px] uppercase tracking-[0.25em]" style={{ color: "var(--gold-400)" }}>
         Placez votre mise {bettingDeadline ? `· ${Math.ceil(remaining / 1000)}s` : ""}
       </span>
-      <div className="flex flex-wrap items-center justify-center gap-4">
+      <div className="flex flex-wrap items-center justify-center gap-4 max-h-[40vh] sm:max-h-none overflow-y-auto">
         {mySeats.map((seat) => {
           const bet = seat.hands[0]?.bet ?? 0;
           return (

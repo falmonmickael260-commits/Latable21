@@ -58,15 +58,17 @@ export function Table2D() {
         <ellipse cx="200" cy="130" rx="179" ry="111" fill="url(#felt)" />
         <ellipse cx="200" cy="130" rx="179" ry="111" fill="none" stroke="#000" strokeOpacity="0.25" strokeWidth="1" />
 
-        {/* Pushed below the (now higher/tighter) seat band so the brand
-            block never collides with the seat circles above it — the
-            table's flatter stretch (TABLE_RADIUS) moved that band up. */}
+        {/* Pushed well below the seat number row (plain text now, no badge
+            circle) so the brand block never collides with it — kept a
+            generous margin since the SVG's non-uniform stretch (viewBox
+            400x260 onto a box whose own aspect shifts with the live
+            screen) amplifies the vertical gap differently per device. */}
         <text
           x="200"
-          y="143"
+          y="150"
           textAnchor="middle"
           fontFamily="var(--font-display), Cinzel, serif"
-          fontSize="26"
+          fontSize="23"
           fontWeight={700}
           letterSpacing="6"
           fill="#e8cf9a"
@@ -76,10 +78,10 @@ export function Table2D() {
         </text>
         <text
           x="200"
-          y="166"
+          y="171"
           textAnchor="middle"
           fontFamily="var(--font-display), Cinzel, serif"
-          fontSize="16"
+          fontSize="15"
           fontWeight={700}
           letterSpacing="5"
           fill="#c9a24b"
@@ -89,7 +91,7 @@ export function Table2D() {
         </text>
         <text
           x="200"
-          y="182"
+          y="186"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
           fontSize="8"
@@ -100,7 +102,7 @@ export function Table2D() {
           BLACKJACK EUROPÉEN
         </text>
 
-        <text x="200" y="198" textAnchor="middle" fontSize="14" fillOpacity="0.32">
+        <text x="200" y="201" textAnchor="middle" fontSize="13" fillOpacity="0.32">
           <tspan fill="#e8cf9a">♠</tspan>
           <tspan dx="10" fill="#8a3b44">♥</tspan>
           <tspan dx="10" fill="#e8cf9a">♣</tspan>
@@ -109,7 +111,7 @@ export function Table2D() {
 
         <text
           x="200"
-          y="212"
+          y="214"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
           fontSize="7"
@@ -121,25 +123,20 @@ export function Table2D() {
         </text>
 
         {SEAT_BADGES.map(({ num, x, y }) => (
-          <g key={num} opacity="0.75">
-            <circle cx={x} cy={y} r="15" fill="none" stroke="var(--gold-500, #c9a24b)" strokeWidth="1.2" />
-            <path
-              d={`M ${x - 5} ${y - 13} l 2.2 2 l 2.8 -3.4 l 2.8 3.4 l 2.2 -2 l -1 5.4 h -8 Z`}
-              fill="#c9a24b"
-              opacity="0.9"
-            />
-            <text
-              x={x}
-              y={y + 4}
-              textAnchor="middle"
-              fontFamily="var(--font-display), Cinzel, serif"
-              fontSize="12"
-              fontWeight={700}
-              fill="#e8cf9a"
-            >
-              {num}
-            </text>
-          </g>
+          <text
+            key={num}
+            x={x}
+            y={y + 4}
+            textAnchor="middle"
+            fontFamily="var(--font-display), Cinzel, serif"
+            fontSize="13"
+            fontWeight={700}
+            fill="#e8cf9a"
+            opacity="0.8"
+            style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.8))" }}
+          >
+            {num}
+          </text>
         ))}
       </svg>
     </div>
