@@ -10,11 +10,15 @@ export interface Point {
   y: number; // percent of the stage height
 }
 
-// Dealer's feet sit right at the table's own top rail edge (TABLE_CENTER.y
-// - TABLE_RADIUS.y = 34) — close enough to read as standing right at the
-// table rather than floating above it.
-export const DEALER_POS: Point = { x: 50, y: 33 };
-export const SHOE_POS: Point = { x: 50, y: 38 };
+// Dealer's feet sit right around the table's own top rail edge
+// (TABLE_CENTER.y - TABLE_RADIUS.y = 34) — close enough to read as standing
+// right at the table rather than floating above it. Must stay large enough
+// that DEALER_POS.y% of the *smallest* possible scene height (the 16:9
+// desktop case, refHeight=675) still clears the dealer sprite's fixed
+// height (200px, see DealerMark) — otherwise its head gets clipped by the
+// scene's overflow:hidden on wide/short viewports. 36% × 675 ≈ 243px > 200.
+export const DEALER_POS: Point = { x: 50, y: 36 };
+export const SHOE_POS: Point = { x: 50, y: 41 };
 
 export const TABLE_CENTER: Point = { x: 50, y: 80 };
 export const TABLE_RADIUS = { x: 66, y: 46 }; // percent — wide enough to run off both edges

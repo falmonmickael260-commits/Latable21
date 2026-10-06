@@ -25,7 +25,7 @@ export function DealerMark({ active, phase }: DealerMarkProps) {
           alt="Croupier"
           draggable={false}
           className="pointer-events-none"
-          style={{ height: 230, width: "auto" }}
+          style={{ height: 200, width: "auto" }}
           animate={{
             filter: active
               ? "drop-shadow(0 6px 10px rgba(0,0,0,0.6)) drop-shadow(0 0 26px rgba(217,184,118,0.55))"

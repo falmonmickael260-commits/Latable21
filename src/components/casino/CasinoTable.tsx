@@ -62,16 +62,26 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
   } = useCasinoSocket(pseudo);
 
   const { ref: outerRef, size: outerSize } = useElementSize<HTMLDivElement>();
-  const { ref: stageRef, size } = useElementSize<HTMLDivElement>();
   const boxRatio =
     outerSize.width > 0 && outerSize.height > 0
       ? Math.min(MAX_RATIO, Math.max(MIN_RATIO, outerSize.width / outerSize.height))
       : MAX_RATIO;
+  // Explicit JS-computed "contain" sizing — CSS aspect-ratio + max-height
+  // alone doesn't work here: with width:100% set explicitly, the browser
+  // caps the *height* at max-height but never re-derives width from that
+  // capped height, so the box silently overflows vertically instead of
+  // shrinking. Computing both dimensions here avoids that entirely.
+  let stageWidth = outerSize.width;
+  let stageHeight = outerSize.width / boxRatio;
+  if (outerSize.height > 0 && stageHeight > outerSize.height) {
+    stageHeight = outerSize.height;
+    stageWidth = outerSize.height * boxRatio;
+  }
   // The reference canvas's own height adapts with boxRatio too (staying
   // REF_WIDTH wide), so the scaled scene exactly fills a taller/narrower
   // stage on a portrait screen instead of only filling its top portion.
   const refHeight = REF_WIDTH / boxRatio;
-  const scale = size.width > 0 ? size.width / REF_WIDTH : 1;
+  const scale = stageWidth > 0 ? stageWidth / REF_WIDTH : 1;
 
   const flightFor = useMemo(() => {
     return (targetSeat: number | "dealer"): FlightVector => {
@@ -155,7 +165,7 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
           arbitrary viewport shape (a very wide/short window was pushing
           seat badges outside the drawn table). */}
       <div ref={outerRef} className="absolute inset-0 flex items-center justify-center p-3">
-        <div ref={stageRef} className="relative w-full" style={{ aspectRatio: boxRatio, maxHeight: "100%" }}>
+        <div className="relative" style={{ width: stageWidth || "100%", height: stageHeight || "100%" }}>
           {/* Scaled scene: fixed-px sizing throughout (seats, cards, badges)
               rendered at the reference canvas size, then scaled as one unit
               to fit the live stage — this is what keeps everything a sane,
