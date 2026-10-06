@@ -166,7 +166,7 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
           >
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2"
-              style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y - 17}%` }}
+              style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y - 14}%` }}
             >
               <LogoPanel />
             </div>
