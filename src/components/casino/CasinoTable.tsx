@@ -119,97 +119,107 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
         </span>
       </div>
 
-      <div ref={stageRef} className="absolute inset-0">
-        <div
-          className="absolute -translate-x-1/2 -translate-y-1/2"
-          style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y - 17}%` }}
-        >
-          <LogoPanel />
-        </div>
+      {/* The whole table scene is locked to a fixed aspect ratio and
+          centered/letterboxed — every seat/card/dealer position is tuned
+          as a percentage of THIS box, so it must never stretch to an
+          arbitrary viewport shape (a very wide/short window was pushing
+          seat badges outside the drawn table). */}
+      <div className="absolute inset-0 flex items-center justify-center p-3">
+        <div ref={stageRef} className="relative w-full" style={{ aspectRatio: "16 / 9", maxHeight: "100%" }}>
+          <div
+            className="absolute -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y - 17}%` }}
+          >
+            <LogoPanel />
+          </div>
 
-        <Table2D />
+          <Table2D />
 
-        <div className="absolute -translate-x-1/2 -translate-y-full" style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y}%` }}>
-          <DealerMark active={dealerActive} phase={table.phase} />
-        </div>
+          <div
+            className="absolute -translate-x-1/2 -translate-y-full"
+            style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y}%` }}
+          >
+            <DealerMark active={dealerActive} phase={table.phase} />
+          </div>
 
-        <div
-          className="absolute -translate-x-1/2 flex gap-1 -space-x-6"
-          style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y + 8}%` }}
-        >
-          {table.dealer.cards.map((card, i) => (
-            <div key={card.id} style={{ zIndex: i }}>
-              <PlayingCard
-                card={card}
-                size="sm"
-                faceDown={i === 1 && !table.dealer.holeCardRevealed}
-                tilt={(i - 0.5) * 4}
-                origin={card.id === dealerJustDealt ? flightFor("dealer") : undefined}
-              />
-            </div>
-          ))}
-          {table.dealer.total !== null && table.dealer.holeCardRevealed && (
-            <span
-              className="absolute -right-9 top-1/2 -translate-y-1/2 text-[12px] font-bold tabular-nums"
-              style={{ color: table.dealer.total > 21 ? "#e0616f" : "var(--cream-dim)" }}
-            >
-              {table.dealer.total}
-            </span>
+          <div
+            className="absolute -translate-x-1/2 flex gap-1 -space-x-6"
+            style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y + 8}%` }}
+          >
+            {table.dealer.cards.map((card, i) => (
+              <div key={card.id} style={{ zIndex: i }}>
+                <PlayingCard
+                  card={card}
+                  size="sm"
+                  faceDown={i === 1 && !table.dealer.holeCardRevealed}
+                  tilt={(i - 0.5) * 4}
+                  origin={card.id === dealerJustDealt ? flightFor("dealer") : undefined}
+                />
+              </div>
+            ))}
+            {table.dealer.total !== null && table.dealer.holeCardRevealed && (
+              <span
+                className="absolute -right-9 top-1/2 -translate-y-1/2 text-[12px] font-bold tabular-nums"
+                style={{ color: table.dealer.total > 21 ? "#e0616f" : "var(--cream-dim)" }}
+              >
+                {table.dealer.total}
+              </span>
+            )}
+          </div>
+
+          {Array.from({ length: SEAT_COUNT }, (_, i) => i + 1).map((seatNumber) => {
+            const seat = table.seats.find((s) => s.seatNumber === seatNumber)!;
+            const pos = seatPosition(seatNumber);
+            const dimmed =
+              table.phase === "player_turns" && table.activeSeat !== null && table.activeSeat !== seatNumber;
+            return (
+              <div
+                key={seatNumber}
+                className="absolute -translate-x-1/2 -translate-y-1/2 transition-opacity duration-500"
+                style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: dimmed ? 0.55 : 1 }}
+              >
+                <Seat
+                  seat={seat}
+                  isMine={seat.playerId === player.id}
+                  isActiveTurn={table.activeSeat === seatNumber}
+                  activeHandIndex={table.activeHandIndex}
+                  turnDeadline={table.turnDeadline}
+                  phase={table.phase}
+                  flightFor={() => flightFor(seatNumber)}
+                  justDealtCardId={justDealtCardId}
+                  onSit={() => sit(seatNumber)}
+                />
+              </div>
+            );
+          })}
+
+          {mySeatsAwaitingBet.length > 0 && (table.phase === "idle" || table.phase === "betting") && (
+            <BetPanel
+              mySeats={mySeatsAwaitingBet}
+              balance={player.balance}
+              onPlaceBet={placeBet}
+              onClearBet={clearBet}
+              onLeaveSeat={leaveSeat}
+              bettingDeadline={table.phase === "betting" ? table.turnDeadline : null}
+            />
           )}
+
+          {isMyTurn && activeHand && table.activeSeat && (
+            <ActionBar
+              seatNumber={table.activeSeat}
+              handIndex={table.activeHandIndex}
+              hand={activeHand}
+              balance={player.balance}
+              onAction={(type) => action(table.activeSeat!, table.activeHandIndex, type)}
+            />
+          )}
+
+          <ResultBanner
+            results={roundResults}
+            mySeatNumbers={mySeats.map((s) => s.seatNumber)}
+            dealerBusted={(table.dealer.total ?? 0) > 21}
+          />
         </div>
-
-        {Array.from({ length: SEAT_COUNT }, (_, i) => i + 1).map((seatNumber) => {
-          const seat = table.seats.find((s) => s.seatNumber === seatNumber)!;
-          const pos = seatPosition(seatNumber);
-          const dimmed =
-            table.phase === "player_turns" && table.activeSeat !== null && table.activeSeat !== seatNumber;
-          return (
-            <div
-              key={seatNumber}
-              className="absolute -translate-x-1/2 -translate-y-1/2 transition-opacity duration-500"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: dimmed ? 0.55 : 1 }}
-            >
-              <Seat
-                seat={seat}
-                isMine={seat.playerId === player.id}
-                isActiveTurn={table.activeSeat === seatNumber}
-                activeHandIndex={table.activeHandIndex}
-                turnDeadline={table.turnDeadline}
-                phase={table.phase}
-                flightFor={() => flightFor(seatNumber)}
-                justDealtCardId={justDealtCardId}
-                onSit={() => sit(seatNumber)}
-              />
-            </div>
-          );
-        })}
-
-        {mySeatsAwaitingBet.length > 0 && (table.phase === "idle" || table.phase === "betting") && (
-          <BetPanel
-            mySeats={mySeatsAwaitingBet}
-            balance={player.balance}
-            onPlaceBet={placeBet}
-            onClearBet={clearBet}
-            onLeaveSeat={leaveSeat}
-            bettingDeadline={table.phase === "betting" ? table.turnDeadline : null}
-          />
-        )}
-
-        {isMyTurn && activeHand && table.activeSeat && (
-          <ActionBar
-            seatNumber={table.activeSeat}
-            handIndex={table.activeHandIndex}
-            hand={activeHand}
-            balance={player.balance}
-            onAction={(type) => action(table.activeSeat!, table.activeHandIndex, type)}
-          />
-        )}
-
-        <ResultBanner
-          results={roundResults}
-          mySeatNumbers={mySeats.map((s) => s.seatNumber)}
-          dealerBusted={(table.dealer.total ?? 0) > 21}
-        />
       </div>
     </div>
   );
