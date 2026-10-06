@@ -21,16 +21,19 @@ export const SHOE_POS: Point = { x: 50, y: 41 };
 export const TABLE_CENTER: Point = { x: 50, y: 74 };
 export const TABLE_RADIUS = { x: 72, y: 40 }; // percent — wide enough to run off both edges
 
-// Read directly off the reference photo's numbered betting circles (same
-// relative arc, 7 seats) — not approximated, the exact fractions.
+// Same arc shape as the reference photo, but with the horizontal spread
+// pulled in — reused at full scale, seats 1 and 7 landed almost on the
+// screen edges with large gaps between badges. Pulling the x-deviation
+// from the center seat in by ~28% keeps the fan shape while bringing the
+// circles closer together.
 export const SEAT_POSITIONS: Record<number, Point> = {
-  1: { x: 85.5, y: 60 },
-  2: { x: 75.7, y: 66.8 },
-  3: { x: 63.7, y: 71.1 },
+  1: { x: 75.5, y: 60 },
+  2: { x: 68.4, y: 66.8 },
+  3: { x: 59.8, y: 71.1 },
   4: { x: 49.7, y: 72.2 },
-  5: { x: 36.0, y: 71.1 },
-  6: { x: 23.9, y: 66.8 },
-  7: { x: 14.1, y: 60 },
+  5: { x: 39.8, y: 71.1 },
+  6: { x: 31.1, y: 66.8 },
+  7: { x: 24.1, y: 60 },
 };
 
 export function seatPosition(seatNumber: number): Point {
