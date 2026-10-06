@@ -34,7 +34,7 @@ create table tables (
 create table seats (
   id uuid primary key default gen_random_uuid(),
   table_id uuid not null references tables (id) on delete cascade,
-  seat_number integer not null check (seat_number between 1 and 8),
+  seat_number integer not null check (seat_number between 1 and 7),
   player_id uuid references players (id) on delete set null,
   bet integer not null default 0,
   status text not null default 'empty',

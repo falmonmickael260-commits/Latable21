@@ -12,7 +12,7 @@ export interface Card {
   id: string;
 }
 
-export const SEAT_COUNT = 8;
+export const SEAT_COUNT = 7;
 export const MIN_BET = 100;
 export const MAX_BET = 500;
 export const STARTING_BALANCE = 3000;
@@ -42,7 +42,7 @@ export interface HandState {
 }
 
 export interface SeatState {
-  seatNumber: number; // 1..8
+  seatNumber: number; // 1..7
   status: SeatStatus;
   playerId: string | null;
   pseudo: string | null;
