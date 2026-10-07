@@ -16,11 +16,23 @@ const SEAT_BADGES = Object.entries(SEAT_POSITIONS).map(([num, pos]) => ({
   y: ((pos.y - top) / (TABLE_RADIUS.y * 2)) * VIEW_H,
 }));
 
+// Half-moon / fan shape — flat on the dealer's side, one big round curve
+// on the players' side — like every real Blackjack table (and every
+// reference photo), instead of a full oval. Three nested paths (rail,
+// gold ring, felt) at increasing insets, each hand-tuned to stay safely
+// inside the 400x260 viewBox so nothing clips against its edges.
+const RAIL_PATH =
+  "M 82,8 L 318,8 C 370,8 398,95 398,145 C 398,205 320,256 200,256 C 80,256 2,205 2,145 C 2,95 30,8 82,8 Z";
+const RING_PATH =
+  "M 94,22 L 306,22 C 354,22 384,100 384,145 C 384,197 312,240 200,240 C 88,240 16,197 16,145 C 16,100 46,22 94,22 Z";
+const FELT_PATH =
+  "M 104,34 L 296,34 C 340,34 372,105 372,145 C 372,190 304,226 200,226 C 96,226 28,190 28,145 C 28,105 60,34 104,34 Z";
+
 /**
- * A hand-drawn SVG table — oval felt, gold trim, wood rail, numbered
- * crowned badges — inspired by the reference photos (same palette, same
- * brand text, same badge layout) but built entirely in code, not a
- * composited photo.
+ * A hand-drawn SVG table — half-moon felt, gold trim, wood rail, numbered
+ * badges — inspired by real Blackjack tables (same palette, same brand
+ * text, same badge layout) but built entirely in code, not a composited
+ * photo.
  */
 export function Table2D() {
   return (
@@ -36,16 +48,22 @@ export function Table2D() {
     >
       <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} width="100%" height="100%" preserveAspectRatio="none">
         <defs>
-          <radialGradient id="felt" cx="50%" cy="38%" r="75%">
+          <radialGradient id="felt" cx="50%" cy="28%" r="80%">
             <stop offset="0%" stopColor="#1c5a40" />
             <stop offset="55%" stopColor="#0f3a28" />
             <stop offset="100%" stopColor="#08281b" />
           </radialGradient>
           <linearGradient id="rail" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#3a2616" />
-            <stop offset="55%" stopColor="#1c1208" />
+            <stop offset="0%" stopColor="#4a2f1b" />
+            <stop offset="30%" stopColor="#2a1a0e" />
+            <stop offset="65%" stopColor="#1c1208" />
             <stop offset="100%" stopColor="#0d0804" />
           </linearGradient>
+          <radialGradient id="railSheen" cx="38%" cy="12%" r="55%">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.16" />
+            <stop offset="60%" stopColor="#fff" stopOpacity="0.03" />
+            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+          </radialGradient>
           <linearGradient id="goldRing" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#f3e2b4" />
             <stop offset="45%" stopColor="#c9a24b" />
@@ -53,22 +71,24 @@ export function Table2D() {
           </linearGradient>
         </defs>
 
-        <ellipse cx="200" cy="130" rx="198" ry="128" fill="url(#rail)" />
-        <ellipse cx="200" cy="130" rx="186" ry="118" fill="none" stroke="url(#goldRing)" strokeWidth="4" />
-        <ellipse cx="200" cy="130" rx="179" ry="111" fill="url(#felt)" />
-        <ellipse cx="200" cy="130" rx="179" ry="111" fill="none" stroke="#000" strokeOpacity="0.25" strokeWidth="1" />
+        {/* Leather rail: base gradient + a soft upper-left sheen so it
+            reads as a padded, lit material instead of a flat fill. */}
+        <path d={RAIL_PATH} fill="url(#rail)" />
+        <path d={RAIL_PATH} fill="url(#railSheen)" />
+        <path d={RING_PATH} fill="none" stroke="url(#goldRing)" strokeWidth="5" />
+        <path d={RING_PATH} fill="none" stroke="#f8ecc8" strokeOpacity="0.5" strokeWidth="1" />
+        <path d={FELT_PATH} fill="url(#felt)" />
+        <path d={FELT_PATH} fill="none" stroke="#000" strokeOpacity="0.25" strokeWidth="1" />
 
-        {/* Pushed well below the seat number row (plain text now, no badge
-            circle) so the brand block never collides with it — kept a
-            generous margin since the SVG's non-uniform stretch (viewBox
-            400x260 onto a box whose own aspect shifts with the live
-            screen) amplifies the vertical gap differently per device. */}
+        {/* Sits in the upper part of the felt, between the dealer's edge
+            and the seat row below it — like every real table, the brand
+            text lives above the betting spots, not below them. */}
         <text
           x="200"
-          y="150"
+          y="85"
           textAnchor="middle"
           fontFamily="var(--font-display), Cinzel, serif"
-          fontSize="23"
+          fontSize="24"
           fontWeight={700}
           letterSpacing="6"
           fill="#e8cf9a"
@@ -78,7 +98,7 @@ export function Table2D() {
         </text>
         <text
           x="200"
-          y="171"
+          y="106"
           textAnchor="middle"
           fontFamily="var(--font-display), Cinzel, serif"
           fontSize="15"
@@ -91,7 +111,7 @@ export function Table2D() {
         </text>
         <text
           x="200"
-          y="186"
+          y="121"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
           fontSize="8"
@@ -102,7 +122,7 @@ export function Table2D() {
           BLACKJACK EUROPÉEN
         </text>
 
-        <text x="200" y="201" textAnchor="middle" fontSize="13" fillOpacity="0.32">
+        <text x="200" y="136" textAnchor="middle" fontSize="13" fillOpacity="0.32">
           <tspan fill="#e8cf9a">♠</tspan>
           <tspan dx="10" fill="#8a3b44">♥</tspan>
           <tspan dx="10" fill="#e8cf9a">♣</tspan>
@@ -111,7 +131,7 @@ export function Table2D() {
 
         <text
           x="200"
-          y="214"
+          y="150"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
           fontSize="7"
@@ -120,6 +140,18 @@ export function Table2D() {
           fillOpacity="0.38"
         >
           LE CROUPIER TIRE À 16 ET RESTE À 17
+        </text>
+        <text
+          x="200"
+          y="161"
+          textAnchor="middle"
+          fontFamily="var(--font-body), sans-serif"
+          fontSize="6.5"
+          letterSpacing="2"
+          fill="#cfc3aa"
+          fillOpacity="0.32"
+        >
+          MIN 100 · MAX 500
         </text>
 
         {SEAT_BADGES.map(({ num, x, y }) => (

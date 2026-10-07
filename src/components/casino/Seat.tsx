@@ -106,7 +106,12 @@ function HandView({
           ))}
       </AnimatePresence>
 
-      <div className="flex -space-x-5">
+      {/* "xs" cards, tightly fanned — with 7 seats packed close together
+          (shoulder-width apart, by design) a seated hand has only ~35-45px
+          of real room before it runs into the next seat's cards; the
+          larger "sm" size used elsewhere overflowed into the neighboring
+          seat even for a single card. */}
+      <div className="flex -space-x-4">
         <AnimatePresence initial={false}>
           {hand.cards.map((card, i) => {
             const isBustCard = isBust && i === hand.cards.length - 1;
@@ -123,7 +128,7 @@ function HandView({
                 )}
                 <PlayingCard
                   card={card}
-                  size="sm"
+                  size="xs"
                   tilt={(i - (hand.cards.length - 1) / 2) * 5}
                   origin={card.id === justDealtCardId ? flightFor(card.id) : undefined}
                 />

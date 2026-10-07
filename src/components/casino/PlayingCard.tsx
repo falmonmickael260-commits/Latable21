@@ -25,12 +25,12 @@ interface PlayingCardProps {
   origin?: FlightVector;
   delay?: number;
   tilt?: number;
-  size?: "md" | "sm";
+  size?: "md" | "sm" | "xs";
 }
 
 export function PlayingCard({ card, faceDown = false, origin, delay = 0, tilt = 0, size = "md" }: PlayingCardProps) {
   const hasArrived = useRef(false);
-  const dims = size === "sm" ? { w: 46, h: 66 } : { w: 64, h: 92 };
+  const dims = size === "xs" ? { w: 32, h: 46 } : size === "sm" ? { w: 46, h: 66 } : { w: 64, h: 92 };
   const isRed = RED_SUITS.has(card.suit);
 
   return (

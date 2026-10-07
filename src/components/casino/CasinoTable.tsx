@@ -5,10 +5,11 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useCasinoSocket } from "@/lib/use-casino-socket";
 import { useElementSize } from "@/hooks/useElementSize";
-import { DEALER_POS, SHOE_POS, seatPosition } from "@/lib/table-layout";
+import { DEALER_POS, SHOE_POS, seatPosition, stoolPosition } from "@/lib/table-layout";
 import { SEAT_COUNT } from "@/lib/types";
 import { Seat } from "./Seat";
 import { Table2D } from "./Table2D";
+import { Stool } from "./Stool";
 import { DealerMark } from "./DealerMark";
 import { LogoPanel } from "./LogoPanel";
 import { HUD } from "./HUD";
@@ -47,13 +48,15 @@ const REF_WIDTH_MIN = 620;
 // The stage's own aspect ratio adapts to the available space instead of
 // staying locked at 16:9 everywhere: capped at 16:9 on wide/landscape
 // screens (the look everything was designed for), but allowed to go as
-// narrow as MIN_RATIO on tall/portrait screens (a phone) so the table
-// actually grows to use the available height instead of shrinking to a
-// thin letterboxed strip with the photo background filling the rest.
-// Kept well short of square so the table doesn't balloon to fill the
-// entire phone screen, crowding out the betting/action panels below it.
+// narrow as MIN_RATIO on tall/portrait screens (a phone) so the stage
+// grows to use the available height instead of shrinking to a short strip
+// pinned under the HUD with a dead gap of background above the dock.
+// Raising this doesn't make the TABLE itself bigger/sprawling — that's
+// controlled by TABLE_RADIUS (a compact half-moon, see table-layout.ts)
+// — it only controls how much of the phone's height the whole scene
+// (background + dealer + table) is allowed to fill.
 const MAX_RATIO = 16 / 9;
-const MIN_RATIO = 1.3;
+const MIN_RATIO = 1.05;
 
 export function CasinoTable({ pseudo }: { pseudo: string }) {
   const {
@@ -176,15 +179,16 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
         </span>
       </div>
 
-      {/* The whole table scene is locked to a fixed aspect ratio and
-          centered/letterboxed — every seat/card/dealer position is tuned
-          as a percentage of THIS box, so it must never stretch to an
-          arbitrary viewport shape (a very wide/short window was pushing
-          seat badges outside the drawn table). Bottom padding on mobile
-          reserves room for the fixed control dock (BetPanel/ActionBar)
-          docked to the viewport there, so the table itself never sits
-          underneath it. */}
-      <div ref={outerRef} className="absolute inset-0 flex items-center justify-center p-3 pb-[172px] sm:pb-3">
+      {/* The whole table scene is locked to a fixed aspect ratio — every
+          seat/card/dealer position is tuned as a percentage of THIS box,
+          so it must never stretch to an arbitrary viewport shape (a very
+          wide/short window was pushing seat badges outside the drawn
+          table). Anchored to the top (not vertically centered) so the now
+          compact table sits just under the HUD instead of floating with a
+          dead gap above and below it on a tall phone screen. Bottom
+          padding on mobile reserves room for the fixed control dock
+          (BetPanel/ActionBar) docked to the viewport there. */}
+      <div ref={outerRef} className="absolute inset-0 flex items-start sm:items-center justify-center p-3 pt-24 sm:pt-3 pb-[172px] sm:pb-3">
         <div className="relative" style={{ width: stageWidth || "100%", height: stageHeight || "100%" }}>
           {/* Scaled scene: fixed-px sizing throughout (seats, cards, badges)
               rendered at the reference canvas size, then scaled as one unit
@@ -202,6 +206,19 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
             </div>
 
             <Table2D />
+
+            {Array.from({ length: SEAT_COUNT }, (_, i) => i + 1).map((seatNumber) => {
+              const pos = stoolPosition(seatNumber);
+              return (
+                <div
+                  key={seatNumber}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, zIndex: 0 }}
+                >
+                  <Stool />
+                </div>
+              );
+            })}
 
             <div
               className="absolute -translate-x-1/2 -translate-y-full"

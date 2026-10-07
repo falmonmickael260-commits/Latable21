@@ -1,41 +1,51 @@
 // Design-space percentage layout for the hand-built 2D table (over the
-// blurred photo backdrop). Shape and seat placement are matched precisely
-// to the user's reference photo (7 betting circles, their exact relative
-// arc spacing) — built in code (SVG), not the photo file itself. Seat 1 is
-// the rightmost seat, seat 7 the leftmost — dealing in ascending seat order
-// (the server's native order) therefore reads right-to-left on screen.
+// blurred photo backdrop) — built in code (SVG), not a composited photo.
+// Deliberately compact: a real Blackjack table, not a giant oval bleeding
+// off both screen edges. Seat 1 is the rightmost seat, seat 7 the
+// leftmost — dealing in ascending seat order (the server's native order)
+// therefore reads right-to-left on screen.
 
 export interface Point {
   x: number; // percent of the stage width
   y: number; // percent of the stage height
 }
 
-// Dealer's feet sit right around the table's own top rail edge. Must stay
-// large enough that DEALER_POS.y% of the *smallest* possible scene height
-// (the 16:9 desktop case, refHeight=675) still clears the dealer sprite's
-// fixed height (200px, see DealerMark) — otherwise its head gets clipped
-// by the scene's overflow:hidden on wide/short viewports.
-export const DEALER_POS: Point = { x: 50, y: 36 };
-export const SHOE_POS: Point = { x: 50, y: 41 };
+// Dealer's feet sit right around the table's own flat top edge.
+export const DEALER_POS: Point = { x: 50, y: 42 };
+export const SHOE_POS: Point = { x: 50, y: 45 };
 
-export const TABLE_CENTER: Point = { x: 50, y: 74 };
-export const TABLE_RADIUS = { x: 72, y: 40 }; // percent — wide enough to run off both edges
+// A genuinely compact, deep table instead of a giant flat oval that bleeds
+// off both screen edges — real blackjack tables (and every reference image)
+// are a half-moon/fan shape: flat on the dealer's side, a big round curve
+// on the players' side. Depth (TABLE_RADIUS.y) matters as much as width
+// here — too flat and the seats have nowhere to sit without crowding the
+// felt text; this is sized so the table fills its share of the stage
+// instead of leaving a dead gap beneath a too-shallow sliver.
+export const TABLE_CENTER: Point = { x: 50, y: 64 };
+export const TABLE_RADIUS = { x: 34, y: 30 }; // percent — fits fully on screen
 
-// Same arc shape as the reference photo, but with the horizontal spread
-// pulled in — reused at full scale, seats 1 and 7 landed almost on the
-// screen edges with large gaps between badges. Pulling the x-deviation
-// from the center seat in by ~28% keeps the fan shape while bringing the
-// circles closer together.
+// A tight arc hugging the front curve of the (now much smaller, deeper)
+// felt, seats a "shoulder width" apart rather than spread across most of
+// the screen. Symmetric around seat 4 (center, closest to the viewer);
+// seats curve back and in as they move outward toward 1 and 7.
 export const SEAT_POSITIONS: Record<number, Point> = {
-  1: { x: 75.5, y: 60 },
-  2: { x: 68.4, y: 66.8 },
-  3: { x: 59.8, y: 71.1 },
-  4: { x: 49.7, y: 72.2 },
-  5: { x: 39.8, y: 71.1 },
-  6: { x: 31.1, y: 66.8 },
-  7: { x: 24.1, y: 60 },
+  1: { x: 73.26, y: 73.93 },
+  2: { x: 67.63, y: 78.6 },
+  3: { x: 59.49, y: 81.7 },
+  4: { x: 50, y: 82.78 },
+  5: { x: 40.51, y: 81.7 },
+  6: { x: 32.37, y: 78.6 },
+  7: { x: 26.74, y: 73.93 },
 };
 
 export function seatPosition(seatNumber: number): Point {
   return SEAT_POSITIONS[seatNumber] ?? { x: 50, y: 50 };
+}
+
+// A stool sits just outside the rail, directly in front of its seat — same
+// x as the betting spot, offset further from the table center (larger y)
+// so it reads as "in front of" the table edge rather than on the felt.
+export function stoolPosition(seatNumber: number): Point {
+  const p = seatPosition(seatNumber);
+  return { x: p.x, y: p.y + 6.5 };
 }
