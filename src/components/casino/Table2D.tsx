@@ -16,17 +16,22 @@ const SEAT_BADGES = Object.entries(SEAT_POSITIONS).map(([num, pos]) => ({
   y: ((pos.y - top) / (TABLE_RADIUS.y * 2)) * VIEW_H,
 }));
 
-// Half-moon / fan shape — flat on the dealer's side, one big round curve
-// on the players' side — like every real Blackjack table (and every
-// reference photo), instead of a full oval. Three nested paths (rail,
-// gold ring, felt) at increasing insets, each hand-tuned to stay safely
-// inside the 400x260 viewBox so nothing clips against its edges.
+// Half-moon / fan shape — flat on the dealer's (far) side, one big round
+// curve on the players' (near) side — like every real Blackjack table.
+// The far edge is deliberately narrow and sits close to the top, while
+// the curve's widest point and the near edge get the rest of the height:
+// that asymmetry (compressed far side, expanded near side) is what reads
+// as "looking down and across the table" instead of a flat plan-view
+// shape — a 2D stand-in for real perspective foreshortening, since the
+// scene has no actual 3D camera. Three nested paths (rail, gold ring,
+// felt) at increasing insets, each hand-tuned to stay inside the 400x260
+// viewBox.
 const RAIL_PATH =
-  "M 82,8 L 318,8 C 370,8 398,95 398,145 C 398,205 320,256 200,256 C 80,256 2,205 2,145 C 2,95 30,8 82,8 Z";
+  "M 100,8 L 300,8 C 350,8 392,50 392,95 C 392,190 310,256 200,256 C 90,256 8,190 8,95 C 8,50 50,8 100,8 Z";
 const RING_PATH =
-  "M 94,22 L 306,22 C 354,22 384,100 384,145 C 384,197 312,240 200,240 C 88,240 16,197 16,145 C 16,100 46,22 94,22 Z";
+  "M 112,20 L 288,20 C 336,20 378,62 378,97 C 378,178 300,240 200,240 C 100,240 22,178 22,97 C 22,62 64,20 112,20 Z";
 const FELT_PATH =
-  "M 104,34 L 296,34 C 340,34 372,105 372,145 C 372,190 304,226 200,226 C 96,226 28,190 28,145 C 28,105 60,34 104,34 Z";
+  "M 124,32 L 276,32 C 320,32 364,74 364,99 C 364,168 290,226 200,226 C 110,226 36,168 36,99 C 36,74 80,32 124,32 Z";
 
 /**
  * A hand-drawn SVG table — half-moon felt, gold trim, wood rail, numbered
@@ -48,11 +53,20 @@ export function Table2D() {
     >
       <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} width="100%" height="100%" preserveAspectRatio="none">
         <defs>
-          <radialGradient id="felt" cx="50%" cy="28%" r="80%">
+          <radialGradient id="felt" cx="50%" cy="20%" r="85%">
             <stop offset="0%" stopColor="#1c5a40" />
             <stop offset="55%" stopColor="#0f3a28" />
             <stop offset="100%" stopColor="#08281b" />
           </radialGradient>
+          {/* Far (top) edge reads darker/cooler, near (bottom) edge
+              brighter — reinforces "the surface recedes into the
+              distance" alongside the path's own foreshortening. */}
+          <linearGradient id="feltDepth" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#000" stopOpacity="0.4" />
+            <stop offset="35%" stopColor="#000" stopOpacity="0.08" />
+            <stop offset="75%" stopColor="#000" stopOpacity="0" />
+            <stop offset="100%" stopColor="#e8cf9a" stopOpacity="0.06" />
+          </linearGradient>
           <linearGradient id="rail" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor="#4a2f1b" />
             <stop offset="30%" stopColor="#2a1a0e" />
@@ -78,19 +92,23 @@ export function Table2D() {
         <path d={RING_PATH} fill="none" stroke="url(#goldRing)" strokeWidth="5" />
         <path d={RING_PATH} fill="none" stroke="#f8ecc8" strokeOpacity="0.5" strokeWidth="1" />
         <path d={FELT_PATH} fill="url(#felt)" />
+        <path d={FELT_PATH} fill="url(#feltDepth)" />
         <path d={FELT_PATH} fill="none" stroke="#000" strokeOpacity="0.25" strokeWidth="1" />
 
         {/* Sits in the upper part of the felt, between the dealer's edge
             and the seat row below it — like every real table, the brand
-            text lives above the betting spots, not below them. */}
+            text lives above the betting spots, not below them. Compressed
+            tighter than before: the perspective reshape above pulled the
+            seat row higher up (closer to the dealer edge), leaving less
+            vertical room here. */}
         <text
           x="200"
-          y="85"
+          y="54"
           textAnchor="middle"
           fontFamily="var(--font-display), Cinzel, serif"
-          fontSize="24"
+          fontSize="20"
           fontWeight={700}
-          letterSpacing="6"
+          letterSpacing="5"
           fill="#e8cf9a"
           fillOpacity="0.5"
         >
@@ -98,12 +116,12 @@ export function Table2D() {
         </text>
         <text
           x="200"
-          y="106"
+          y="72"
           textAnchor="middle"
           fontFamily="var(--font-display), Cinzel, serif"
-          fontSize="15"
+          fontSize="13"
           fontWeight={700}
-          letterSpacing="5"
+          letterSpacing="4"
           fill="#c9a24b"
           fillOpacity="0.5"
         >
@@ -111,31 +129,31 @@ export function Table2D() {
         </text>
         <text
           x="200"
-          y="121"
+          y="85"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
-          fontSize="8"
-          letterSpacing="4"
+          fontSize="7"
+          letterSpacing="3"
           fill="#e8cf9a"
           fillOpacity="0.38"
         >
           BLACKJACK EUROPÉEN
         </text>
 
-        <text x="200" y="136" textAnchor="middle" fontSize="13" fillOpacity="0.32">
+        <text x="200" y="98" textAnchor="middle" fontSize="11" fillOpacity="0.32">
           <tspan fill="#e8cf9a">♠</tspan>
-          <tspan dx="10" fill="#8a3b44">♥</tspan>
-          <tspan dx="10" fill="#e8cf9a">♣</tspan>
-          <tspan dx="10" fill="#8a3b44">♦</tspan>
+          <tspan dx="8" fill="#8a3b44">♥</tspan>
+          <tspan dx="8" fill="#e8cf9a">♣</tspan>
+          <tspan dx="8" fill="#8a3b44">♦</tspan>
         </text>
 
         <text
           x="200"
-          y="150"
+          y="111"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
-          fontSize="7"
-          letterSpacing="2"
+          fontSize="6.5"
+          letterSpacing="1.5"
           fill="#cfc3aa"
           fillOpacity="0.38"
         >
@@ -143,11 +161,11 @@ export function Table2D() {
         </text>
         <text
           x="200"
-          y="161"
+          y="122"
           textAnchor="middle"
           fontFamily="var(--font-body), sans-serif"
-          fontSize="6.5"
-          letterSpacing="2"
+          fontSize="6"
+          letterSpacing="1.5"
           fill="#cfc3aa"
           fillOpacity="0.32"
         >

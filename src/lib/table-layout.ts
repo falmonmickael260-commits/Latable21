@@ -33,13 +33,13 @@ export const TABLE_RADIUS = { x: 34, y: 30 }; // percent — fits fully on scree
 // the screen. Symmetric around seat 4 (center, closest to the viewer);
 // seats curve back and in as they move outward toward 1 and 7.
 export const SEAT_POSITIONS: Record<number, Point> = {
-  1: { x: 73.26, y: 73.93 },
-  2: { x: 67.63, y: 78.6 },
-  3: { x: 59.49, y: 81.7 },
-  4: { x: 50, y: 82.78 },
-  5: { x: 40.51, y: 81.7 },
-  6: { x: 32.37, y: 78.6 },
-  7: { x: 26.74, y: 73.93 },
+  1: { x: 71.25, y: 67.76 },
+  2: { x: 65.64, y: 75.54 },
+  3: { x: 58.84, y: 79.95 },
+  4: { x: 50, y: 81.77 },
+  5: { x: 41.16, y: 79.95 },
+  6: { x: 34.36, y: 75.54 },
+  7: { x: 28.75, y: 67.76 },
 };
 
 export function seatPosition(seatNumber: number): Point {
