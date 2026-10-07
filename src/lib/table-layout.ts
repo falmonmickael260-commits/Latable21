@@ -10,9 +10,13 @@ export interface Point {
   y: number; // percent of the stage height
 }
 
-// Dealer's feet sit right around the table's own flat top edge.
-export const DEALER_POS: Point = { x: 50, y: 42 };
-export const SHOE_POS: Point = { x: 50, y: 45 };
+// Dealer's feet sit right at the table's own flat top edge (stage y≈36,
+// see RAIL_PATH's top edge in Table2D.tsx) — any lower and his legs sink
+// visibly into the rail/felt instead of standing behind it, which reads
+// as "floating on the table" rather than a dealer viewed in perspective
+// behind it.
+export const DEALER_POS: Point = { x: 50, y: 32 };
+export const SHOE_POS: Point = { x: 50, y: 35 };
 
 // A genuinely compact, deep table instead of a giant flat oval that bleeds
 // off both screen edges — real blackjack tables (and every reference image)
