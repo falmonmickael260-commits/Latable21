@@ -9,15 +9,16 @@ interface ActionButtonProps {
   sub?: string;
   icon?: ReactNode;
   disabled?: boolean;
-  tone?: "gold" | "wine" | "neutral";
+  tone?: "gold" | "wine" | "neutral" | "green";
   onClick: () => void;
 }
 
-export function ActionButton({ label, sub, disabled, tone = "neutral", onClick }: ActionButtonProps) {
+export function ActionButton({ label, sub, icon, disabled, tone = "neutral", onClick }: ActionButtonProps) {
   const palette = {
     gold: { bg: "linear-gradient(180deg, var(--gold-400), var(--gold-600))", text: "var(--ink)", ring: "var(--gold-400)" },
     wine: { bg: "linear-gradient(180deg, var(--wine-500), var(--wine-600))", text: "var(--cream)", ring: "var(--wine-500)" },
     neutral: { bg: "linear-gradient(180deg, #2a2a2a, #121212)", text: "var(--cream)", ring: "rgba(217,184,118,0.4)" },
+    green: { bg: "linear-gradient(180deg, #1f8a4c, #146133)", text: "var(--cream)", ring: "#1f8a4c" },
   }[tone];
 
   return (
@@ -31,7 +32,7 @@ export function ActionButton({ label, sub, disabled, tone = "neutral", onClick }
       }}
       whileHover={disabled ? undefined : { y: -3 }}
       whileTap={disabled ? undefined : { y: 1, scale: 0.97 }}
-      className="relative flex flex-col items-center justify-center rounded-xl px-3.5 py-2.5 sm:px-5 sm:py-3 min-w-[72px] sm:min-w-[92px] disabled:opacity-35 disabled:cursor-not-allowed transition-opacity"
+      className="relative flex flex-col items-center justify-center gap-1 rounded-xl px-3.5 py-2.5 sm:px-5 sm:py-3 min-w-[72px] sm:min-w-[92px] disabled:opacity-35 disabled:cursor-not-allowed transition-opacity"
       style={{
         background: palette.bg,
         color: palette.text,
@@ -39,6 +40,7 @@ export function ActionButton({ label, sub, disabled, tone = "neutral", onClick }
         border: `1px solid ${palette.ring}`,
       }}
     >
+      {icon && <span className="w-5 h-5 sm:w-6 sm:h-6">{icon}</span>}
       <span className="text-[13px] font-bold tracking-wide" style={{ fontFamily: "var(--font-display)" }}>
         {label}
       </span>

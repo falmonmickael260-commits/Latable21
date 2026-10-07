@@ -4,11 +4,11 @@ import { motion } from "framer-motion";
 import { sfx } from "@/lib/sound";
 
 const CHIP_THEME: Record<number, { base: string; ring: string; text: string }> = {
-  100: { base: "#f4ead8", ring: "#2a2a2a", text: "#1a1a1a" },
-  200: { base: "#7a1f2b", ring: "#f4ead8", text: "#f4ead8" },
-  300: { base: "#123c2b", ring: "#d9b876", text: "#f4ead8" },
-  400: { base: "#161616", ring: "#d9b876", text: "#d9b876" },
-  500: { base: "#2a1140", ring: "#d9b876", text: "#f3e2b4" },
+  100: { base: "#c21f2e", ring: "#f8f3e8", text: "#f8f3e8" },
+  200: { base: "#1c5fbf", ring: "#f8f3e8", text: "#f8f3e8" },
+  300: { base: "#157a3d", ring: "#f8f3e8", text: "#f8f3e8" },
+  400: { base: "#161616", ring: "#f8f3e8", text: "#f8f3e8" },
+  500: { base: "#5b1f9e", ring: "#f8f3e8", text: "#f8f3e8" },
 };
 
 function themeFor(amount: number) {

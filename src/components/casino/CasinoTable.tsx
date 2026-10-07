@@ -5,13 +5,9 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useCasinoSocket } from "@/lib/use-casino-socket";
 import { useElementSize } from "@/hooks/useElementSize";
-import { DEALER_POS, SHOE_POS, seatPosition, stoolPosition } from "@/lib/table-layout";
+import { DEALER_POS, SHOE_POS, IMAGE_WIDTH, IMAGE_HEIGHT, seatPosition } from "@/lib/table-layout";
 import { SEAT_COUNT } from "@/lib/types";
 import { Seat } from "./Seat";
-import { Table2D } from "./Table2D";
-import { Stool } from "./Stool";
-import { DealerMark } from "./DealerMark";
-import { LogoPanel } from "./LogoPanel";
 import { HUD } from "./HUD";
 import { ActionBar } from "./ActionBar";
 import { BetPanel } from "./BetPanel";
@@ -29,34 +25,23 @@ const PHASE_LABEL: Record<string, string> = {
   payout: "Résultats de la manche",
 };
 
-// All seat/card/badge sizing throughout the scene is designed in fixed px
-// against this reference canvas, then the whole scene is uniformly scaled
-// (via CSS transform) to whatever size the live, aspect-locked stage box
-// actually renders at. That's what makes the table (and everything on it)
-// scale smoothly from a small phone up to a wide desktop instead of seats
-// and cards staying a constant, viewport-breaking pixel size.
-//
-// A single fixed 1200 reference width made mobile scale factors crater to
-// ~0.3 (375px stage / 1200) — cards/badges authored at a readable px size
-// rendered at a third of that, unreadable on a phone. Shrinking the
-// reference width on narrow stages keeps the scale factor in a sane range
-// (~0.6+) so fixed-px UI stays legible, while wide/desktop stages are
-// unaffected (clamped at the original 1200).
+// All seat/card sizing is authored in fixed px against this reference
+// canvas, then the whole scene is uniformly scaled (CSS transform) to fit
+// the live stage box — this is what keeps cards/badges a sane, legible
+// size on a small phone instead of a constant viewport-breaking pixel size.
+// REF_WIDTH itself shrinks on narrow stages (mobile) so the scale factor
+// stays in a readable range instead of cratering on a 1200-wide canvas.
 const REF_WIDTH_MAX = 1200;
 const REF_WIDTH_MIN = 620;
 
-// The stage's own aspect ratio adapts to the available space instead of
-// staying locked at 16:9 everywhere: capped at 16:9 on wide/landscape
-// screens (the look everything was designed for), but allowed to go as
-// narrow as MIN_RATIO on tall/portrait screens (a phone) so the stage
-// grows to use the available height instead of shrinking to a short strip
-// pinned under the HUD with a dead gap of background above the dock.
-// Raising this doesn't make the TABLE itself bigger/sprawling — that's
-// controlled by TABLE_RADIUS (a compact half-moon, see table-layout.ts)
-// — it only controls how much of the phone's height the whole scene
-// (background + dealer + table) is allowed to fill.
-const MAX_RATIO = 16 / 9;
-const MIN_RATIO = 0.68;
+// The scene is a real photo (public/images/table-bg.png) now, not an
+// abstract hand-built shape — so unlike the old SVG table, its aspect
+// ratio is NOT negotiable: stretching or squashing it to fit the viewport
+// would distort the dealer/table photo and throw every seat position off.
+// It's always displayed via a strict "contain" fit at its own native
+// aspect ratio, letterboxed (not cropped/stretched) on viewports that
+// don't match — the blurred hero image behind fills those letterbox bars.
+const IMAGE_ASPECT = IMAGE_WIDTH / IMAGE_HEIGHT;
 
 export function CasinoTable({ pseudo }: { pseudo: string }) {
   const {
@@ -75,27 +60,23 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
   } = useCasinoSocket(pseudo);
 
   const { ref: outerRef, size: outerSize } = useElementSize<HTMLDivElement>();
-  const boxRatio =
-    outerSize.width > 0 && outerSize.height > 0
-      ? Math.min(MAX_RATIO, Math.max(MIN_RATIO, outerSize.width / outerSize.height))
-      : MAX_RATIO;
   // Explicit JS-computed "contain" sizing — CSS aspect-ratio + max-height
   // alone doesn't work here: with width:100% set explicitly, the browser
   // caps the *height* at max-height but never re-derives width from that
   // capped height, so the box silently overflows vertically instead of
   // shrinking. Computing both dimensions here avoids that entirely.
   let stageWidth = outerSize.width;
-  let stageHeight = outerSize.width / boxRatio;
+  let stageHeight = outerSize.width / IMAGE_ASPECT;
   if (outerSize.height > 0 && stageHeight > outerSize.height) {
     stageHeight = outerSize.height;
-    stageWidth = outerSize.height * boxRatio;
+    stageWidth = outerSize.height * IMAGE_ASPECT;
   }
   const REF_WIDTH =
     outerSize.width > 0 ? Math.min(REF_WIDTH_MAX, Math.max(REF_WIDTH_MIN, outerSize.width * 1.15)) : REF_WIDTH_MAX;
-  // The reference canvas's own height adapts with boxRatio too (staying
-  // REF_WIDTH wide), so the scaled scene exactly fills a taller/narrower
-  // stage on a portrait screen instead of only filling its top portion.
-  const refHeight = REF_WIDTH / boxRatio;
+  // Always exactly IMAGE_ASPECT — this reference canvas is just a fixed-px
+  // coordinate space for sizing cards/seats, scaled as one unit onto the
+  // stage box above, so its own aspect must match the photo's exactly.
+  const refHeight = REF_WIDTH / IMAGE_ASPECT;
   const scale = stageWidth > 0 ? stageWidth / REF_WIDTH : 1;
 
   const flightFor = useMemo(() => {
@@ -109,8 +90,6 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
       return { dx, dy };
     };
   }, [refHeight, REF_WIDTH]);
-
-  const dealerActive = table?.phase === "dealer_reveal" || table?.phase === "dealer_turns";
 
   if (!table || !player) {
     return (
@@ -149,6 +128,9 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
 
   return (
     <div className="relative flex-1 overflow-hidden">
+      {/* Letterbox filler behind the contained photo — visible as side
+          margins on wide/desktop screens where the tall photo can't fill
+          the full width without distorting. */}
       <Image
         src="/images/la-table-21-hero.png"
         alt=""
@@ -188,13 +170,12 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
         </span>
       </div>
 
-      {/* The whole table scene is locked to a fixed aspect ratio — every
-          seat/card/dealer position is tuned as a percentage of THIS box,
-          so it must never stretch to an arbitrary viewport shape (a very
-          wide/short window was pushing seat badges outside the drawn
-          table). Anchored to the top (not vertically centered) so the now
-          compact table sits just under the HUD instead of floating with a
-          dead gap above and below it on a tall phone screen. Bottom
+      {/* The whole table scene is locked to the background photo's own
+          aspect ratio (contain-fit, never stretched/cropped) — every
+          seat/card position is tuned as a percentage of THIS photo, so
+          distorting it would throw every one of them off. Anchored to the
+          top (not vertically centered) so it sits just under the HUD
+          instead of floating with a dead gap above and below it. Bottom
           padding on mobile reserves room for the fixed control dock
           (BetPanel/ActionBar) docked to the viewport there. */}
       <div
@@ -204,7 +185,18 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
         }`}
       >
         <div className="relative" style={{ width: stageWidth || "100%", height: stageHeight || "100%" }}>
-          {/* Scaled scene: fixed-px sizing throughout (seats, cards, badges)
+          {stageWidth > 0 && (
+            <Image
+              src="/images/table-bg.png"
+              alt=""
+              fill
+              priority
+              className="object-contain pointer-events-none select-none rounded-2xl"
+              sizes="100vw"
+            />
+          )}
+
+          {/* Scaled scene: fixed-px sizing throughout (seats, cards)
               rendered at the reference canvas size, then scaled as one unit
               to fit the live stage — this is what keeps everything a sane,
               proportionate size on a small phone instead of overlapping. */}
@@ -213,37 +205,8 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
             style={{ width: REF_WIDTH, height: refHeight, transform: `scale(${scale})` }}
           >
             <div
-              className="absolute -translate-x-1/2 -translate-y-1/2"
-              style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y - 14}%` }}
-            >
-              <LogoPanel />
-            </div>
-
-            <Table2D />
-
-            {Array.from({ length: SEAT_COUNT }, (_, i) => i + 1).map((seatNumber) => {
-              const pos = stoolPosition(seatNumber);
-              return (
-                <div
-                  key={seatNumber}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, zIndex: 0 }}
-                >
-                  <Stool />
-                </div>
-              );
-            })}
-
-            <div
-              className="absolute -translate-x-1/2 -translate-y-full"
-              style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y}%` }}
-            >
-              <DealerMark active={dealerActive} phase={table.phase} />
-            </div>
-
-            <div
               className="absolute -translate-x-1/2 flex gap-1 -space-x-6"
-              style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y + 8}%` }}
+              style={{ left: `${DEALER_POS.x}%`, top: `${DEALER_POS.y}%` }}
             >
               {table.dealer.cards.map((card, i) => (
                 <div key={card.id} style={{ zIndex: i }}>

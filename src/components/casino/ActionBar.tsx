@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import type { HandState } from "@/lib/types";
 import { ActionButton } from "./ActionButton";
+import { HitIcon, StandIcon, DoubleIcon, SplitIcon } from "./ActionIcons";
 
 interface ActionBarProps {
   seatNumber: number;
@@ -43,10 +44,10 @@ export function ActionBar({ seatNumber, handIndex, hand, balance, onAction }: Ac
           className="flex flex-wrap justify-center gap-2 sm:gap-3 rounded-2xl p-2.5 sm:p-3 max-w-[420px] sm:max-w-none mx-auto"
           style={{ background: "rgba(5,8,10,0.55)", backdropFilter: "blur(6px)" }}
         >
-          <ActionButton label="TIRER" tone="gold" onClick={() => onAction("hit")} />
-          <ActionButton label="RESTER" tone="neutral" onClick={() => onAction("stand")} />
-          <ActionButton label="DOUBLE" tone="wine" disabled={!canDouble} onClick={() => onAction("double")} />
-          <ActionButton label="SPLIT" tone="wine" disabled={!canSplit} onClick={() => onAction("split")} />
+          <ActionButton label="TIRER" tone="green" icon={<HitIcon />} onClick={() => onAction("hit")} />
+          <ActionButton label="RESTER" tone="gold" icon={<StandIcon />} onClick={() => onAction("stand")} />
+          <ActionButton label="DOUBLE" tone="wine" icon={<DoubleIcon />} disabled={!canDouble} onClick={() => onAction("double")} />
+          <ActionButton label="SPLIT" tone="neutral" icon={<SplitIcon />} disabled={!canSplit} onClick={() => onAction("split")} />
         </div>
       </motion.div>
     </AnimatePresence>
