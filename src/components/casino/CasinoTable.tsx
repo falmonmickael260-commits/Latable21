@@ -56,7 +56,7 @@ const REF_WIDTH_MIN = 620;
 // — it only controls how much of the phone's height the whole scene
 // (background + dealer + table) is allowed to fill.
 const MAX_RATIO = 16 / 9;
-const MIN_RATIO = 0.58;
+const MIN_RATIO = 0.68;
 
 export function CasinoTable({ pseudo }: { pseudo: string }) {
   const {

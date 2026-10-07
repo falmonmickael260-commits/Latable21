@@ -67,5 +67,5 @@ export function seatPosition(seatNumber: number): Point {
 // so it reads as "in front of" the table edge rather than on the felt.
 export function stoolPosition(seatNumber: number): Point {
   const p = seatPosition(seatNumber);
-  return { x: p.x, y: p.y + 6.5 };
+  return { x: p.x, y: p.y + 22 };
 }
