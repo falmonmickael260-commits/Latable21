@@ -56,7 +56,7 @@ const REF_WIDTH_MIN = 620;
 // — it only controls how much of the phone's height the whole scene
 // (background + dealer + table) is allowed to fill.
 const MAX_RATIO = 16 / 9;
-const MIN_RATIO = 0.75;
+const MIN_RATIO = 0.58;
 
 export function CasinoTable({ pseudo }: { pseudo: string }) {
   const {
@@ -138,6 +138,15 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
   const justDealtCardId = lastDeal?.card.id ?? null;
   const dealerJustDealt = lastDeal?.seatNumber === "dealer" && justDealtCardId;
 
+  // The bottom-docked panel (BetPanel/ActionBar) only actually renders in
+  // these states — reserving its height unconditionally wasted a big chunk
+  // of a phone's screen (table pinned small under the HUD) the rest of the
+  // time, e.g. before sitting down at all.
+  const dockVisible = Boolean(
+    (mySeatsAwaitingBet.length > 0 && (table.phase === "idle" || table.phase === "betting")) ||
+      (isMyTurn && activeHand && table.activeSeat)
+  );
+
   return (
     <div className="relative flex-1 overflow-hidden">
       <Image
@@ -188,7 +197,12 @@ export function CasinoTable({ pseudo }: { pseudo: string }) {
           dead gap above and below it on a tall phone screen. Bottom
           padding on mobile reserves room for the fixed control dock
           (BetPanel/ActionBar) docked to the viewport there. */}
-      <div ref={outerRef} className="absolute inset-0 flex items-start sm:items-center justify-center p-3 pt-24 sm:pt-3 pb-[172px] sm:pb-3">
+      <div
+        ref={outerRef}
+        className={`absolute inset-0 flex items-start sm:items-center justify-center p-3 pt-24 sm:pt-3 ${
+          dockVisible ? "pb-[172px] sm:pb-3" : "pb-3"
+        }`}
+      >
         <div className="relative" style={{ width: stageWidth || "100%", height: stageHeight || "100%" }}>
           {/* Scaled scene: fixed-px sizing throughout (seats, cards, badges)
               rendered at the reference canvas size, then scaled as one unit
