@@ -83,6 +83,9 @@ export class GameManager {
   leaveSeat(seatNumber: number, playerId: string) {
     const seat = this.seat(seatNumber);
     if (seat.playerId !== playerId) throw new Error("Place non assignée à ce joueur.");
+    if (this.table.phase !== "idle" && this.table.phase !== "betting") {
+      throw new Error("Attendez la fin de la manche pour quitter cette place.");
+    }
     if (seat.status === "betting" && seat.hands[0]?.bet) {
       store.adjustBalance(playerId, seat.hands[0].bet);
       this.cb.onPlayerChanged(playerId);
@@ -99,8 +102,11 @@ export class GameManager {
     if (this.table.phase !== "idle" && this.table.phase !== "betting") {
       throw new Error("Les mises sont fermées pour cette manche.");
     }
-    if (amount < MIN_BET || amount > MAX_BET) {
+    if (!Number.isInteger(amount) || amount < MIN_BET || amount > MAX_BET) {
       throw new Error(`La mise doit être entre ${MIN_BET} et ${MAX_BET}.`);
+    }
+    if (seat.status === "betting" && seat.hands.length > 0) {
+      throw new Error("Annulez votre mise avant de la remplacer.");
     }
     const player = store.getById(playerId);
     if (!player || player.balance < amount) throw new Error("Solde insuffisant.");
@@ -131,6 +137,9 @@ export class GameManager {
   clearBet(seatNumber: number, playerId: string) {
     const seat = this.seat(seatNumber);
     if (seat.playerId !== playerId) throw new Error("Place non assignée à ce joueur.");
+    if (this.table.phase !== "idle" && this.table.phase !== "betting") {
+      throw new Error("Les mises sont fermées pour cette manche.");
+    }
     if (seat.status !== "betting") return;
     const refund = seat.hands[0]?.bet ?? 0;
     if (refund > 0) {

@@ -1,0 +1,25 @@
+; Open this project in Godot 4.6 or later.
+config_version=5
+
+[application]
+config/name="La Table 21"
+run/main_scene="res://scenes/casino.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+config/icon="res://icon.svg"
+run/max_fps=30
+
+[display]
+window/size/viewport_width=1440
+window/size/viewport_height=900
+window/size/window_width_override=1280
+window/size/window_height_override=800
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.018, 0.03, 0.025, 1)
+textures/default_filters/use_nearest_mipmap_filter=false
+
+[audio]
+driver/enable_input=false

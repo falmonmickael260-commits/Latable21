@@ -1,0 +1,36 @@
+name: Godot web and server checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.3
+          use-dotnet: false
+          include-templates: true
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: la-table-21-godot-web
+          path: public/game/
+      - name: Test Godot against the production server
+        run: |
+          npm start > server.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:3000/ > /dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:godot
+          godot --headless --path godot --script tests/scene_test.gd

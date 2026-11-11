@@ -135,4 +135,4 @@ export const store = new MemoryStore();
 
 // Sweep every minute so bonuses land close to on-time without needing a
 // request to trigger them.
-setInterval(() => store.runBonusSweep(), 60_000);
+setInterval(() => store.runBonusSweep(), 60_000).unref();

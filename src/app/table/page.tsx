@@ -1,25 +1,13 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { getStoredPseudo } from "@/lib/device-token";
-import { CasinoTable } from "@/components/casino/CasinoTable";
-
 export default function TablePage() {
-  const router = useRouter();
-  const [pseudo, setPseudo] = useState<string | null>(null);
-
-  useEffect(() => {
-    const stored = getStoredPseudo();
-    if (!stored) {
-      router.replace("/");
-      return;
-    }
-    // One-time sync from localStorage (an external store) on mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPseudo(stored);
-  }, [router]);
-
-  if (!pseudo) return null;
-  return <CasinoTable pseudo={pseudo} />;
+  return (
+    <main className="flex-1 min-h-0 h-dvh bg-[#08100e]">
+      <iframe
+        title="La Table 21 — Casino 3D Godot"
+        src="/game/index.html"
+        className="block w-full h-full border-0"
+        allow="autoplay; fullscreen; gamepad"
+        allowFullScreen
+      />
+    </main>
+  );
 }
