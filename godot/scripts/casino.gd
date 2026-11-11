@@ -4,6 +4,7 @@ extends Node3D
 
 const NetworkScript = preload("res://scripts/casino_network.gd")
 const FONT = preload("res://assets/table-font.ttf")
+const FELT_FONT = preload("res://assets/felt-serif.ttf")
 const GOLD = Color("bca477")
 const CREAM = Color("efe5cd")
 const PHASES = {"idle": "Faites vos jeux", "betting": "Les mises sont ouvertes", "dealing": "Distribution des cartes", "player_turns": "Tour des joueurs", "dealer_reveal": "Le croupier révèle son jeu", "dealer_turns": "Le croupier joue", "payout": "Résultats de la manche"}
@@ -217,12 +218,12 @@ func _build_room() -> void:
 func _build_table() -> void:
 	var gold := _material(Color("a98c60"), .6, .38)
 	var rail := _material(Color("30271f"), .1, .43)
-	var base := _cylinder(2.65, .3, Vector3(0, .78, 0), rail)
-	base.scale = Vector3(1.3, 1, .8)
-	var rim := _cylinder(2.65, .045, Vector3(0, .95, 0), gold)
-	rim.scale = Vector3(1.3, 1, .8)
-	var cushion := _torus(2.52, .12, Vector3(0, 1.01, 0), _material(Color("17262a"), .05, .43))
-	cushion.scale = Vector3(1.3, .7, .8)
+	var base := _cylinder(2.65, .22, Vector3(0, .83, 0), rail)
+	base.scale = Vector3(1.06, 1, .70)
+	var rim := _cylinder(2.65, .025, Vector3(0, .95, 0), gold)
+	rim.scale = Vector3(1.06, 1, .70)
+	var cushion := _torus(2.52, .095, Vector3(0, 1.01, 0), _material(Color("17262a"), .05, .43))
+	cushion.scale = Vector3(1.06, .7, .70)
 	var felt_material := _material(Color("103c31"), 0, .98)
 	var noise := FastNoiseLite.new()
 	noise.frequency = .65
@@ -235,31 +236,33 @@ func _build_table() -> void:
 	felt_material.normal_texture = texture
 	felt_material.normal_scale = .025
 	var felt := _cylinder(2.43, .03, Vector3(0, 1.085, 0), felt_material)
-	felt.scale = Vector3(1.3, 1, .8)
+	felt.scale = Vector3(1.06, 1, .70)
 	var pedestal := _cylinder(1.15, .7, Vector3(0, .38, 0), _material(Color("1d231b"), .3))
 	pedestal.scale.x = 1.5
-	var felt_title := _label_3d("L A   T A B L E   2 1", Vector3(0, 1.112, -.1), 58, Color("bda974"))
-	felt_title.rotation_degrees.x = -90
-	var rules := _label_3d("BLACKJACK PAYS 3 TO 2\nLE CROUPIER RESTE À 17", Vector3(0, 1.114, .55), 20, Color("b0a679"))
-	rules.rotation_degrees.x = -90
+	_felt_text("LA TABLE 21", Vector3(0, 1.109, -.32), 58, .0020)
+	_felt_arc_text("BLACKJACK PAYS 3 TO 2", 1.3, .015, 104.0)
+	_felt_text("DEALER STANDS ON ALL 17s", Vector3(0, 1.109, .23), 36, .0020)
+	_felt_text("MIN 100\nMAX 500", Vector3(1.55, 1.109, -.25), 30, .0019)
+	var dealer_line: Array[Vector3] = []
+	for step in range(61):
+		var angle := deg_to_rad(lerpf(-58, 58, step / 60.0))
+		dealer_line.append(Vector3(sin(angle) * 1.77, 1.105, -.54 + 1.18 * (1 - cos(angle))))
+	_printed_curve(dealer_line, .009, Color("a79e7c"))
 	for number in range(1, 8):
 		var pos := _seat_position(number)
-		var ring := TorusMesh.new()
-		ring.inner_radius = .33
-		ring.outer_radius = .35
-		ring.rings = 48
-		ring.ring_segments = 8
-		seat_rings[number] = _mesh(ring, _material(Color("a18d56"), .4), pos)
-		var seat_label := _label_3d(str(number) + " · LIBRE", pos + Vector3(0, .02, .48), 25)
-		seat_label.rotation_degrees.x = -67
-		seat_label.pixel_size = .0024
+		var outline: Array[Vector3] = []
+		for step in range(65):
+			var angle := TAU * step / 64.0
+			outline.append(pos + Vector3(cos(angle) * .265, -.02, sin(angle) * .265))
+		seat_rings[number] = _printed_curve(outline, .012, Color("b6ab86"))
+		var seat_label := _felt_text(str(number), pos + Vector3(0, -.016, .22), 30, .0022)
 		seat_labels[number] = seat_label
 		var body := StaticBody3D.new()
 		body.position = pos
 		body.set_meta("seat", number)
 		var hitbox := CollisionShape3D.new()
 		var shape := CylinderShape3D.new()
-		shape.radius = .5
+		shape.radius = .31
 		shape.height = .12
 		hitbox.shape = shape
 		body.add_child(hitbox)
@@ -282,12 +285,50 @@ func _build_table() -> void:
 		for layer in range(6):
 			_cylinder(.078, .025, Vector3(-1.6 + column * .2, 1.24 + layer * .026, -1.25), _material([Color("a63743"), Color("295e94"), GOLD, Color("27734f"), Color("484242")][column]))
 
+func _felt_text(text_value: String, at: Vector3, size_value: int, pixel_size_value: float) -> Label3D:
+	var label := _label_3d(text_value, at, size_value, Color("c0b18c"))
+	label.font = FELT_FONT
+	label.pixel_size = pixel_size_value
+	label.rotation_degrees.x = -90
+	label.scale.y = 1.5
+	label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return label
+
+func _felt_arc_text(text_value: String, radius: float, center_z: float, spread: float) -> void:
+	for index in text_value.length():
+		if text_value[index] == " ": continue
+		var angle := deg_to_rad(lerpf(-spread / 2, spread / 2, float(index) / (text_value.length() - 1)))
+		var label := _felt_text(text_value[index], Vector3(sin(angle) * radius, 1.109, center_z + radius * (1 - cos(angle))), 64, .0022)
+		label.rotation_degrees.y = -rad_to_deg(angle)
+
+func _felt_ink(color: Color) -> StandardMaterial3D:
+	var ink := _material(color, 0, .98)
+	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return ink
+
+func _printed_curve(points: Array[Vector3], width: float, color: Color) -> MeshInstance3D:
+	# Flat ink on the felt, with no metal thickness, relief or cast shadow.
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in points.size() - 1:
+		var from := points[index]
+		var to := points[index + 1]
+		var side := (to - from).normalized().cross(Vector3.UP) * width / 2
+		for vertex in [from - side, to - side, from + side, from + side, to - side, to + side]:
+			surface.set_normal(Vector3.UP)
+			surface.add_vertex(vertex)
+	var ink := _felt_ink(color)
+	ink.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var line := _mesh(surface.commit(), ink, Vector3.ZERO)
+	line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return line
+
 func _seat_angle(number: int) -> float:
 	return deg_to_rad((number - 4) * 23.0)
 
 func _seat_position(number: int) -> Vector3:
 	var angle := _seat_angle(number)
-	return Vector3(sin(angle) * 2.75, 1.125, cos(angle) * 1.5 + .2)
+	return Vector3(sin(angle) * 2.25, 1.125, cos(angle) * 1.27 + .14)
 
 func _torus(radius: float, thickness: float, at: Vector3, material: Material) -> MeshInstance3D:
 	var ring := TorusMesh.new()
@@ -588,9 +629,9 @@ func _move_camera() -> void:
 	var width := get_viewport().get_visible_rect().size.x
 	var height := get_viewport().get_visible_rect().size.y
 	var portrait := width < height
-	var distance := 8.8 if portrait else 3.4 if seated else 5.55
-	var destination := Vector3(sin(angle) * distance, 2.1 if seated else 3.1, cos(angle) * distance)
-	var target := Vector3(0, 1.2, -.35)
+	var distance := 8.2 if portrait else 4.2 if seated else 5.55
+	var destination := Vector3(sin(angle) * distance, 2.3 if seated else 3.1, cos(angle) * distance)
+	var target := Vector3(0, 1.17, -.25)
 	for number in seat_chairs:
 		for mesh in seat_chairs[number]:
 			mesh.visible = not (seated and number == selected_seat)
@@ -635,6 +676,7 @@ func _refresh_ui() -> void:
 		var empty: bool = seat.get("status") == "empty"
 		var button := _button(("%s\n%s" if compact else "%s · %s") % [number, "VOUS" if is_mine else "LIBRE" if empty else "PRISE"], _select_seat.bind(number), 56 if compact else 96)
 		button.add_theme_font_size_override("font_size", 10 if compact else 14)
+		button.tooltip_text = "Case %s · %s" % [number, "Libre" if empty else str(seat.get("pseudo", ""))]
 		button.disabled = not connected or (not is_mine and (not empty or not open))
 		if is_mine and number == selected_seat:
 			button.add_theme_stylebox_override("normal", _style_panel(Color("35432a"), GOLD))
@@ -702,7 +744,6 @@ func _sync_scene() -> void:
 		var own: bool = seat.get("playerId") == player.get("id", "missing")
 		var empty: bool = seat.get("status") == "empty"
 		var label: Label3D = seat_labels[number]
-		var total_text := ""
 		var hands: Array = seat.get("hands", [])
 		for hand_index in hands.size():
 			var hand: Dictionary = hands[hand_index]
@@ -717,11 +758,11 @@ func _sync_scene() -> void:
 				if not chips.has(chip_id) or chips[chip_id].get_meta("amount") != bet_amount:
 					if chips.has(chip_id): chips[chip_id].queue_free()
 					chips[chip_id] = _create_chip(bet_amount, pos + Vector3(0, .02, .4), has_initial_state)
-			if hand.get("result") != null:
-				total_text += " · " + {"win": "GAGNÉ", "lose": "PERDU", "push": "ÉGALITÉ", "blackjack": "BLACKJACK", "bust": "DÉPASSÉ"}.get(str(hand.result), "")
-		label.text = "%s · %s%s" % [number, "LIBRE" if empty else "VOUS" if own else str(seat.get("pseudo", "")), total_text]
-		label.modulate = GOLD if own or empty else Color("b8bda9")
-		seat_rings[number].material_override = _material(GOLD if own else Color("687553") if empty else Color("454f40"), .4)
+		# Seat numbers are ink on the felt; ownership stays in the controls.
+		label.text = str(number)
+		label.modulate = Color("c0b18c")
+		seat_rings[number].material_override = _felt_ink(Color("c9b98f") if own else Color("a5a180") if empty else Color("797b6b"))
+
 	var dealer: Dictionary = table.get("dealer", {})
 	_sync_hand(dealer.get("cards", []), Vector3(-.12, 1.14, -.8), live_cards, not dealer.get("holeCardRevealed", false))
 	var visible_dealer: Array = []

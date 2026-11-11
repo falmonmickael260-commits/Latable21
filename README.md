@@ -24,7 +24,7 @@ godot --path godot -- --server=ws://127.0.0.1:3000 --pseudo=Mickael
 
 ## Expérience de jeu
 
-- Une salle et une table **en vraie 3D**, éclairées, avec bordure, tapis, sièges, sabot et réserve de jetons.
+- Une salle et une table **en vraie 3D**, avec plateau compact et bordure fine. Le tapis porte des marquages plats : cases numérotées, mentions du blackjack en arc, règle du croupier à 17 et mises 100–500, dans une typographie serif.
 - Caméra basse face à la table, déplacement animé vers une place confirmée par le serveur. Cliquer sur un cercle du tapis ou sur un bouton de place pour s’asseoir.
 - Places libres, personnelles et occupées distinctes. La prise d’une place occupée est rejetée côté serveur.
 - Possibilité de réserver plusieurs cases libres ; sélectionner une de ses cases dans la barre, puis choisir sa mise. Chaque case a sa propre main, sa pile de jetons et son résultat.
@@ -81,4 +81,4 @@ Blackjack européen sans carte cachée initiale (ENHC). Croupier reste à 17 ; b
 
 Une seule table partagée et un stockage **en mémoire** : redémarrer le serveur efface les joueurs, places et soldes. Le schéma Supabase est disponible mais non branché. Le client n’ajoute ni argent réel ni système de paiement. Le projet nécessite encore des modèles et animations d’artiste pour une direction photoréaliste, et une validation sur de vrais appareils mobiles pour les performances/touches/clavier virtuel.
 
-La police embarquée DejaVu Sans est distribuée avec sa licence dans `godot/assets/FONT-LICENSE.txt`.
+La police embarquée DejaVu Sans est distribuée avec sa licence dans `godot/assets/FONT-LICENSE.txt`. Les inscriptions du tapis utilisent Liberation Serif Bold, dont la licence figure dans `godot/assets/FELT-FONT-LICENSE.txt`.
