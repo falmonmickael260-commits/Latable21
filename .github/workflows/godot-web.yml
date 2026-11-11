@@ -34,3 +34,4 @@ jobs:
           done
           npm run test:godot
           godot --headless --path godot --script tests/scene_test.gd
+          godot --headless --path godot --script tests/cards_test.gd
