@@ -32,7 +32,15 @@ godot --path godot -- --server=ws://127.0.0.1:3000 --pseudo=Mickael
 - Tirer, rester, doubler et séparer selon les possibilités de la main active, avec délai de décision et résultats du serveur.
 - Reconnexion automatique avec identité conservée dans le stockage utilisateur Godot/IndexedDB. Les actions restent désactivées pendant la déconnexion.
 
+Le rendu active l’anticrénelage MSAA, le filtrage anisotrope et les polices 3D MSDF. La bordure et les sièges sont arrondis, le costume et le visage utilisent des surfaces à normales lissées, et l’éclairage neutre conserve les couleurs du tapis et du laiton.
+
 La direction visuelle actuelle est **stylisée et procédurale** : le croupier est constitué de maillages Godot animés, pas d’un humain photoréaliste ni d’un personnage capturé. Les formes et matériaux sont des bases modifiables dans le projet ; aucun service de génération ou asset payant n’est nécessaire.
+
+## Aperçu du rendu
+
+![Capture du rendu Godot](docs/visuels/rendu-godot-1080p.png)
+
+Capture réelle de l’export WebGL en 1920×1080, en mode démonstration local. Les cartes de cet aperçu illustrent la scène ; il ne s’agit pas d’une partie réseau enregistrée.
 
 ## Architecture
 

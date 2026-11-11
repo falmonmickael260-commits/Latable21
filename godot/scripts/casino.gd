@@ -4,7 +4,7 @@ extends Node3D
 
 const NetworkScript = preload("res://scripts/casino_network.gd")
 const FONT = preload("res://assets/table-font.ttf")
-const GOLD = Color("cfb477")
+const GOLD = Color("bca477")
 const CREAM = Color("efe5cd")
 const PHASES = {"idle": "Faites vos jeux", "betting": "Les mises sont ouvertes", "dealing": "Distribution des cartes", "player_turns": "Tour des joueurs", "dealer_reveal": "Le croupier révèle son jeu", "dealer_turns": "Le croupier joue", "payout": "Résultats de la manche"}
 
@@ -51,6 +51,7 @@ var compact := false
 var status_row: HBoxContainer
 
 func _ready() -> void:
+	get_viewport().msaa_3d = Viewport.MSAA_8X
 	for argument in OS.get_cmdline_user_args():
 		if argument == "--demo": demo_mode = true
 		if argument == "--reduced-motion": reduced_motion = true
@@ -85,6 +86,7 @@ func _material(color: Color, metal := 0.0, roughness := 0.7) -> StandardMaterial
 	result.albedo_color = color
 	result.metallic = metal
 	result.roughness = roughness
+	result.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	return result
 
 func _mesh(mesh_value: Mesh, material: Material, at: Vector3, parent: Node3D = self) -> MeshInstance3D:
@@ -112,6 +114,8 @@ func _sphere(radius: float, at: Vector3, material: Material, parent: Node3D = se
 	var sphere := SphereMesh.new()
 	sphere.radius = radius
 	sphere.height = radius * 2
+	sphere.radial_segments = 64
+	sphere.rings = 32
 	return _mesh(sphere, material, at, parent)
 
 func _segment(from: Vector3, to: Vector3, radius: float, material: Material, parent: Node3D = self) -> MeshInstance3D:
@@ -129,56 +133,79 @@ func _label_3d(text_value: String, at: Vector3, font_size := 38, color := GOLD) 
 	label.outline_size = 0
 	label.position = at
 	label.no_depth_test = false
+	label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	label.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
 	add_child(label)
 	return label
 
 func _build_room() -> void:
-	var environment := WorldEnvironment.new()
-	var settings := Environment.new()
-	settings.background_mode = Environment.BG_COLOR
-	settings.background_color = Color("08100e")
-	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	settings.ambient_light_color = Color("81958c")
-	settings.ambient_light_energy = 0.35
-	settings.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.environment = settings
-	add_child(environment)
-	var light := DirectionalLight3D.new()
-	light.rotation_degrees = Vector3(-55, -25, 0)
-	light.light_color = Color("ffebca")
-	light.light_energy = 0.65
-	light.shadow_enabled = true
-	add_child(light)
+	var world := WorldEnvironment.new()
+	var environment := Environment.new()
+	environment.background_mode = Environment.BG_COLOR
+	environment.background_color = Color("080f13")
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color("becbd5")
+	environment.ambient_light_energy = .22
+	# A dim sky supplies neutral reflections to the brass and leather.
+	var sky := Sky.new()
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color("101b26")
+	sky_material.sky_horizon_color = Color("68717a")
+	sky_material.ground_bottom_color = Color("0a1116")
+	sky_material.ground_horizon_color = Color("68717a")
+	sky_material.sky_energy_multiplier = .35
+	sky_material.ground_energy_multiplier = .2
+	sky.sky_material = sky_material
+	environment.sky = sky
+	environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	world.environment = environment
+	add_child(world)
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-58, -28, 0)
+	key.light_color = Color("fff5e9")
+	key.light_energy = .48
+	key.shadow_enabled = true
+	key.light_angular_distance = 1.5
+	key.directional_shadow_max_distance = 18
+	key.shadow_bias = .03
+	add_child(key)
 	var table_light := OmniLight3D.new()
-	table_light.position = Vector3(0, 5, 0)
-	table_light.light_color = Color("ffe6ad")
-	table_light.light_energy = 1.4
-	table_light.omni_range = 12
+	table_light.position = Vector3(-1.5, 4.6, .7)
+	table_light.light_color = Color("ffefdc")
+	table_light.light_energy = .85
+	table_light.omni_range = 9
 	add_child(table_light)
-	var wood := _material(Color("14231c"), 0.1)
-	var gold := _material(GOLD, 0.65, 0.3)
-	_box(Vector3(40, .12, 40), Vector3(0, -.1, 0), _material(Color("101914"), .2, .3))
-	_box(Vector3(25, 9, .25), Vector3(0, 4, -7), wood)
-	for x in [-11.0, -8.0, -5.0, -2.0, 2.0, 5.0, 8.0, 11.0]:
-		_box(Vector3(.14, 7, .3), Vector3(x, 3.4, -6.8), gold)
-		_box(Vector3(2.4, .035, .3), Vector3(x + 1.2, 1.4, -6.75), gold)
-		_box(Vector3(2.4, .035, .3), Vector3(x + 1.2, 5.6, -6.75), gold)
-	for x in [-7.0, 7.0]:
-		_cylinder(.2, 4.4, Vector3(x, 2.2, -4.4), _material(Color("293a2c"), .2))
-		_cylinder(.29, .12, Vector3(x, 4.3, -4.4), gold)
-		var lamp := OmniLight3D.new()
-		lamp.position = Vector3(x, 3.6, -4)
-		lamp.light_color = Color("ffcd73")
-		lamp.light_energy = .7
-		lamp.omni_range = 5
-		add_child(lamp)
-		var shade := _material(Color("e3b66f"), .25)
+	var fill := OmniLight3D.new()
+	fill.position = Vector3(3, 3, -1.5)
+	fill.light_color = Color("c7dbed")
+	fill.light_energy = .55
+	fill.omni_range = 8
+	add_child(fill)
+	var wall := _material(Color("101b20"), .05, .85)
+	var brass := _material(Color("8d7653"), .55, .4)
+	_box(Vector3(40, .12, 40), Vector3(0, -.1, 0), _material(Color("0c1216"), .1, .45))
+	_box(Vector3(25, 8, .25), Vector3(0, 3.8, -6), wall)
+	for x in [-7.5, -4.5, -1.5, 1.5, 4.5, 7.5]:
+		_box(Vector3(.025, 4.8, .045), Vector3(x, 2.9, -5.83), brass)
+		_box(Vector3(2.7, .025, .045), Vector3(x + 1.5, .5, -5.83), brass)
+		_box(Vector3(2.7, .025, .045), Vector3(x + 1.5, 5.3, -5.83), brass)
+	for x in [-4.8, 4.8]:
+		_cylinder(.11, 3.4, Vector3(x, 1.7, -3.8), _material(Color("1e2a30"), .25, .4))
+		_cylinder(.15, .055, Vector3(x, 3.3, -3.8), brass)
+		var shade := _material(Color("ddc8a0"), .05, .8)
 		shade.emission_enabled = true
-		shade.emission = Color("c48c43")
-		_cylinder(.32, .65, Vector3(x, 3.6, -4.2), shade)
-	var sign_label := _label_3d("L A   T A B L E   2 1", Vector3(0, 4.25, -6.8), 90)
-	sign_label.pixel_size = .006
-	_label_3d("S A L O N   P R I V É", Vector3(0, 3.65, -6.79), 27)
+		shade.emission = Color("9a7b4e")
+		shade.emission_energy_multiplier = .25
+		_cylinder(.21, .46, Vector3(x, 3.05, -3.8), shade)
+		var lamp := OmniLight3D.new()
+		lamp.position = Vector3(x, 3.05, -3.5)
+		lamp.light_color = Color("ffdbad")
+		lamp.light_energy = .45
+		lamp.omni_range = 3
+		add_child(lamp)
+	var sign_label := _label_3d("21", Vector3(0, 3.9, -5.8), 160, Color("b9a27a"))
+	sign_label.pixel_size = .005
+	_label_3d("S A L O N   P R I V É", Vector3(0, 3.25, -5.79), 27, Color("9a907b"))
 	camera = Camera3D.new()
 	camera.position = Vector3(0, 3.7, 7.7)
 	camera.fov = 68
@@ -187,25 +214,25 @@ func _build_room() -> void:
 	camera.look_at(Vector3(0, 1.25, -.75))
 
 func _build_table() -> void:
-	var gold := _material(GOLD, .65, .3)
+	var gold := _material(Color("a98c60"), .6, .38)
 	var rail := _material(Color("30271f"), .1, .43)
 	var base := _cylinder(2.65, .3, Vector3(0, .78, 0), rail)
 	base.scale = Vector3(1.3, 1, .8)
 	var rim := _cylinder(2.65, .045, Vector3(0, .95, 0), gold)
 	rim.scale = Vector3(1.3, 1, .8)
-	var cushion := _cylinder(2.6, .13, Vector3(0, 1.01, 0), _material(Color("14241c"), 0, .6))
-	cushion.scale = Vector3(1.3, 1, .8)
-	var felt_material := _material(Color("17523b"), 0, .98)
+	var cushion := _torus(2.52, .12, Vector3(0, 1.01, 0), _material(Color("17262a"), .05, .43))
+	cushion.scale = Vector3(1.3, .7, .8)
+	var felt_material := _material(Color("103c31"), 0, .98)
 	var noise := FastNoiseLite.new()
 	noise.frequency = .65
 	var texture := NoiseTexture2D.new()
-	texture.width = 256
-	texture.height = 256
+	texture.width = 512
+	texture.height = 512
 	texture.noise = noise
 	texture.as_normal_map = true
 	felt_material.normal_enabled = true
 	felt_material.normal_texture = texture
-	felt_material.normal_scale = .12
+	felt_material.normal_scale = .025
 	var felt := _cylinder(2.43, .03, Vector3(0, 1.085, 0), felt_material)
 	felt.scale = Vector3(1.3, 1, .8)
 	var pedestal := _cylinder(1.15, .7, Vector3(0, .38, 0), _material(Color("1d231b"), .3))
@@ -224,6 +251,7 @@ func _build_table() -> void:
 		seat_rings[number] = _mesh(ring, _material(Color("a18d56"), .4), pos)
 		var seat_label := _label_3d(str(number) + " · LIBRE", pos + Vector3(0, .02, .48), 25)
 		seat_label.rotation_degrees.x = -67
+		seat_label.pixel_size = .0024
 		seat_labels[number] = seat_label
 		var body := StaticBody3D.new()
 		body.position = pos
@@ -236,10 +264,11 @@ func _build_table() -> void:
 		body.add_child(hitbox)
 		add_child(body)
 		var chair_pos := Vector3(pos.x * 1.3, .55, pos.z * 1.5)
-		var chair := _cylinder(.38, .13, chair_pos, _material(Color("372a20"), .1))
-		chair.scale.z = .85
+		var chair := _sphere(.38, chair_pos, _material(Color("1c2b2e"), .05, .46))
+		chair.scale = Vector3(1, .22, .9)
 		_cylinder(.06, .5, chair_pos - Vector3(0, .3, 0), gold)
-		var back := _box(Vector3(.7, .65, .11), chair_pos + Vector3(0, .4, .31), _material(Color("173025")))
+		var back := _sphere(.4, chair_pos + Vector3(0, .4, .31), _material(Color("1c2b2e"), .05, .46))
+		back.scale = Vector3(.95, 1, .22)
 		back.rotation.y = _seat_angle(number)
 		seat_chairs[number] = [chair, back]
 	# The card shoe and chip tray are physical props, separate from the dealer.
@@ -259,41 +288,108 @@ func _seat_position(number: int) -> Vector3:
 	var angle := _seat_angle(number)
 	return Vector3(sin(angle) * 2.75, 1.125, cos(angle) * 1.5 + .2)
 
+func _torus(radius: float, thickness: float, at: Vector3, material: Material) -> MeshInstance3D:
+	var ring := TorusMesh.new()
+	ring.inner_radius = radius - thickness
+	ring.outer_radius = radius + thickness
+	ring.rings = 128
+	ring.ring_segments = 16
+	return _mesh(ring, material, at)
+
+func _tailored_shape(sections: Array, material: Material, parent: Node3D) -> MeshInstance3D:
+	# Continuous, smooth normals across the silhouette, including the shoulder
+	# and jaw transitions. Sections contain height, half-width and half-depth.
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var segments := 64
+	for row in sections.size():
+		var section: Vector3 = sections[row]
+		var before: Vector3 = sections[maxi(0, row - 1)]
+		var after: Vector3 = sections[mini(sections.size() - 1, row + 1)]
+		for column in segments:
+			var angle := TAU * column / segments
+			var c := cos(angle)
+			var q := sin(angle)
+			vertices.append(Vector3(c * section.y, section.x, q * section.z))
+			var along := Vector3(c * (after.y - before.y), after.x - before.x, q * (after.z - before.z))
+			var around := Vector3(-q * section.y, 0, c * section.z)
+			normals.append(along.cross(around).normalized())
+	for row in sections.size() - 1:
+		for column in segments:
+			var a := row * segments + column
+			var b := row * segments + (column + 1) % segments
+			var c := a + segments
+			var d := b + segments
+			indices.append_array(PackedInt32Array([a, b, c, b, d, c]))
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var shape := ArrayMesh.new()
+	shape.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return _mesh(shape, material, Vector3.ZERO, parent)
+
+func _lapel(points: Array, material: Material, parent: Node3D) -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in range(1, points.size() - 1):
+		for vertex in [points[0], points[index], points[index + 1]]:
+			surface.set_normal(Vector3.BACK)
+			surface.add_vertex(vertex)
+	var cloth: StandardMaterial3D = material.duplicate()
+	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mesh(surface.commit(), cloth, Vector3.ZERO, parent)
+
 func _build_dealer() -> void:
-	var suit := _material(Color("17241f"), .05, .8)
-	var shirt := _material(Color("e7dfca"))
-	var skin := _material(Color("c59a77"), 0, .8)
-	var hair := _material(Color("25251e"))
+	var suit := _material(Color("17222e"), .02, .72)
+	var lapel := _material(Color("263444"), .05, .5)
+	var shirt := _material(Color("d9d6cf"), 0, .9)
+	var skin := _material(Color("bf967e"), 0, .8)
+	var hair := _material(Color("252027"), .02, .65)
 	dealer_body = Node3D.new()
 	dealer_body.position = Vector3(0, -.1, -2.4)
 	add_child(dealer_body)
-	var torso := _sphere(.48, Vector3(0, 1.9, 0), suit, dealer_body)
-	torso.scale = Vector3(1, 1.3, .55)
-	_box(Vector3(.32, .7, .035), Vector3(0, 2.0, .265), shirt, dealer_body)
-	_box(Vector3(.19, .07, .05), Vector3(0, 2.23, .3), hair, dealer_body)
-	_cylinder(.13, .2, Vector3(0, 2.43, 0), skin, dealer_body)
-	var head := _sphere(.27, Vector3(0, 2.72, 0), skin, dealer_body)
-	head.scale = Vector3(.82, 1.14, .85)
-	var hair_cap := _sphere(.275, Vector3(0, 2.86, -.035), hair, dealer_body)
-	hair_cap.scale = Vector3(.84, .7, .83)
-	for x in [-.085, .085]:
-		_sphere(.025, Vector3(x, 2.75, .211), _material(Color("242820")), dealer_body)
-		_box(Vector3(.07, .015, .025), Vector3(x, 2.81, .207), hair, dealer_body)
-	var nose := _sphere(.035, Vector3(0, 2.68, .24), skin, dealer_body)
-	nose.scale.y = 1.3
-	_box(Vector3(.09, .012, .01), Vector3(0, 2.59, .208), _material(Color("8c6652")), dealer_body)
-	_box(Vector3(.16, .075, .01), Vector3(-.26, 2.04, .234), _material(GOLD, .6), dealer_body)
-	_segment(Vector3(-.37, 2.14, .02), Vector3(-.61, 1.59, .4), .135, suit, dealer_body)
-	_segment(Vector3(-.61, 1.59, .4), Vector3(-.27, 1.2, .86), .11, suit, dealer_body)
-	_sphere(.11, Vector3(-.26, 1.2, .91), skin, dealer_body)
+	_tailored_shape([Vector3(1.33,.28,.17), Vector3(1.45,.32,.19), Vector3(1.75,.34,.22), Vector3(2.04,.43,.23), Vector3(2.17,.45,.2), Vector3(2.28,.31,.16), Vector3(2.35,.15,.12)], suit, dealer_body)
+	_lapel([Vector3(-.15,2.29,.255), Vector3(.15,2.29,.255), Vector3(.1,1.73,.255), Vector3(0,1.62,.255), Vector3(-.1,1.73,.255)], shirt, dealer_body)
+	for side in [-1, 1]:
+		_lapel([Vector3(side*.17,2.31,.27), Vector3(side*.36,2.17,.265), Vector3(side*.21,1.99,.28), Vector3(side*.27,1.91,.275), Vector3(side*.07,1.62,.27)], lapel, dealer_body)
+		_lapel([Vector3(side*.02,2.19,.285), Vector3(side*.16,2.31,.275), Vector3(side*.14,2.12,.29)], shirt, dealer_body)
+		var bow := _sphere(.065, Vector3(side*.058,2.18,.31), hair, dealer_body)
+		bow.scale = Vector3(1,.57,.3)
+	_sphere(.023, Vector3(0,2.18,.33), hair, dealer_body)
+	_cylinder(.105, .2, Vector3(0,2.42,0), skin, dealer_body)
+	_tailored_shape([Vector3(2.47,.08,.1),Vector3(2.5,.125,.15),Vector3(2.57,.175,.185),Vector3(2.67,.205,.205),Vector3(2.79,.21,.2),Vector3(2.9,.185,.185),Vector3(2.98,.115,.12),Vector3(3.01,.001,.001)], skin, dealer_body)
+	var hair_cap := _sphere(.22, Vector3(0,2.92,-.035), hair, dealer_body)
+	hair_cap.scale = Vector3(.98,.55,.88)
+	for side in [-1,1]:
+		var ear := _sphere(.045, Vector3(side*.205,2.72,0), skin, dealer_body)
+		ear.scale = Vector3(.5,1,.6)
+		var white := _sphere(.033, Vector3(side*.078,2.775,.183), shirt, dealer_body)
+		white.scale = Vector3(1,.43,.35)
+		var iris := _sphere(.013, Vector3(side*.078,2.773,.195), hair, dealer_body)
+		iris.scale.z = .4
+		_segment(Vector3(side*.043,2.822,.178),Vector3(side*.113,2.814,.17),.009,hair,dealer_body)
+	var nose := _sphere(.031, Vector3(0,2.695,.21),skin,dealer_body)
+	nose.scale = Vector3(.65,1.5,1.2)
+	_segment(Vector3(-.052,2.601,.177),Vector3(0,2.592,.19),.006,_material(Color("805e55")),dealer_body)
+	_segment(Vector3(0,2.592,.19),Vector3(.052,2.601,.177),.006,_material(Color("805e55")),dealer_body)
+	for y in [1.79,1.6]: _sphere(.015,Vector3(.035,y,.24),_material(GOLD,.6),dealer_body)
+	_box(Vector3(.14,.045,.01),Vector3(-.29,2.07,.207),_material(GOLD,.6),dealer_body)
+	_segment(Vector3(-.38,2.14,.02),Vector3(-.53,1.6,.4),.12,suit,dealer_body)
+	_segment(Vector3(-.53,1.6,.4),Vector3(-.26,1.21,.86),.095,suit,dealer_body)
+	_sphere(.09,Vector3(-.26,1.2,.91),skin,dealer_body)
 	dealer_arm = Node3D.new()
-	dealer_arm.position = Vector3(.37, 2.14, .02)
+	dealer_arm.position = Vector3(.38,2.14,.02)
 	dealer_body.add_child(dealer_arm)
-	_segment(Vector3.ZERO, Vector3(.22, -.54, .4), .135, suit, dealer_arm)
-	_segment(Vector3(.22, -.54, .4), Vector3(-.12, -.94, .85), .105, suit, dealer_arm)
-	_cylinder(.107, .07, Vector3(-.12, -.91, .85), shirt, dealer_arm)
-	var hand := _sphere(.11, Vector3(-.12, -.94, .95), skin, dealer_arm)
-	hand.scale = Vector3(.8, .5, 1.3)
+	_segment(Vector3.ZERO,Vector3(.17,-.54,.4),.12,suit,dealer_arm)
+	_segment(Vector3(.17,-.54,.4),Vector3(-.12,-.94,.85),.095,suit,dealer_arm)
+	_cylinder(.097,.06,Vector3(-.12,-.91,.85),shirt,dealer_arm)
+	var hand := _sphere(.1,Vector3(-.12,-.94,.95),skin,dealer_arm)
+	hand.scale = Vector3(.8,.42,1.15)
+	for finger in range(4):
+		_segment(Vector3(-.177+finger*.033,-.94,1),Vector3(-.177+finger*.033,-.96,1.09),.016,skin,dealer_arm)
 
 func _style_panel(color := Color("101d18"), border := Color("665d41")) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -784,5 +880,6 @@ func _start_demo() -> void:
 	var seats: Array = []
 	for number in range(1, 8):
 		seats.append({"seatNumber": number, "playerId": "demo-player" if number in [3, 4] else null, "pseudo": "APERÇU" if number in [3, 4] else null, "status": "playing" if number in [3, 4] else "empty", "hands": [{"bet": 100 if number == 3 else 200, "cards": [{"id": "demo-%s-a" % number, "rank": "A", "suit": "spades"}, {"id": "demo-%s-b" % number, "rank": "K" if number == 3 else "7", "suit": "hearts"}], "result": null, "doubled": false, "isSplit": false}] if number in [3, 4] else []})
+	seat_request = 4
 	_on_table({"phase": "dealing", "roundNumber": 1, "seats": seats, "dealer": {"cards": [{"id": "demo-dealer", "rank": "9", "suit": "diamonds"}], "holeCardRevealed": false}, "activeSeat": null, "turnDeadline": null})
 	status_label.text = "APERÇU LOCAL · SANS SERVEUR"
