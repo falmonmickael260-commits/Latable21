@@ -35,3 +35,4 @@ jobs:
           npm run test:godot
           godot --headless --path godot --script tests/scene_test.gd
           godot --headless --path godot --script tests/cards_test.gd
+          godot --headless --path godot --script tests/chips_test.gd

@@ -7,6 +7,9 @@ const FONT = preload("res://assets/table-font.ttf")
 const FELT_FONT = preload("res://assets/felt-serif.ttf")
 const GOLD = Color("bca477")
 const CREAM = Color("efe5cd")
+const FELT_SURFACE_Y = 1.10
+const CHIP_RADIUS = .096
+const CHIP_HEIGHT = .018
 const PHASES = {"idle": "Faites vos jeux", "betting": "Les mises sont ouvertes", "dealing": "Distribution des cartes", "player_turns": "Tour des joueurs", "dealer_reveal": "Le croupier révèle son jeu", "dealer_turns": "Le croupier joue", "payout": "Résultats de la manche"}
 
 var net: CasinoNetwork
@@ -235,14 +238,15 @@ func _build_table() -> void:
 	felt_material.normal_enabled = true
 	felt_material.normal_texture = texture
 	felt_material.normal_scale = .025
-	var felt := _cylinder(2.43, .03, Vector3(0, 1.085, 0), felt_material)
+	var felt := _cylinder(2.43, .03, Vector3(0, FELT_SURFACE_Y - .015, 0), felt_material)
+	felt.name = "TableFelt"
 	felt.scale = Vector3(1.06, 1, .70)
 	var pedestal := _cylinder(1.15, .7, Vector3(0, .38, 0), _material(Color("1d231b"), .3))
 	pedestal.scale.x = 1.5
 	_felt_text("LA TABLE 21", Vector3(0, 1.109, -.32), 58, .0020)
 	_felt_arc_text("BLACKJACK PAYS 3 TO 2", 1.3, .015, 104.0)
 	_felt_text("DEALER STANDS ON ALL 17s", Vector3(0, 1.109, .23), 36, .0020)
-	_felt_text("MIN 100\nMAX 500", Vector3(1.55, 1.109, -.25), 30, .0019)
+	_felt_text("MIN 100\nMAX 500", Vector3(1.55, 1.109, -.25), 34, .0020)
 	var dealer_line: Array[Vector3] = []
 	for step in range(61):
 		var angle := deg_to_rad(lerpf(-58, 58, step / 60.0))
@@ -255,7 +259,10 @@ func _build_table() -> void:
 			var angle := TAU * step / 64.0
 			outline.append(pos + Vector3(cos(angle) * .265, -.02, sin(angle) * .265))
 		seat_rings[number] = _printed_curve(outline, .012, Color("b6ab86"))
-		var seat_label := _felt_text(str(number), pos + Vector3(0, -.016, .22), 30, .0022)
+		var seat_angle := _seat_angle(number)
+		var number_offset := Vector3(sin(seat_angle) * .13 + cos(seat_angle) * .20, -.016, cos(seat_angle) * .13 - sin(seat_angle) * .20)
+		var seat_label := _felt_text(str(number), pos + number_offset, 42, .0024)
+		seat_label.scale.y = 1.8
 		seat_labels[number] = seat_label
 		var body := StaticBody3D.new()
 		body.position = pos
@@ -282,8 +289,10 @@ func _build_table() -> void:
 		_box(Vector3(.25, .007, .34), Vector3(1.15, 1.37 + index * .009, -1.25), _material(CREAM))
 	_box(Vector3(1.05, .08, .42), Vector3(-1.2, 1.17, -1.25), _material(Color("0b110e")))
 	for column in range(5):
-		for layer in range(6):
-			_cylinder(.078, .025, Vector3(-1.6 + column * .2, 1.24 + layer * .026, -1.25), _material([Color("a63743"), Color("295e94"), GOLD, Color("27734f"), Color("484242")][column]))
+		for layer in range(3):
+			var coin := _chip_coin([100, 200, 300, 400, 500][column], layer == 2)
+			add_child(coin)
+			coin.position = Vector3(-1.6 + column * .2, 1.21 + layer * CHIP_HEIGHT, -1.25)
 
 func _felt_text(text_value: String, at: Vector3, size_value: int, pixel_size_value: float) -> Label3D:
 	var label := _label_3d(text_value, at, size_value, Color("c0b18c"))
@@ -750,7 +759,7 @@ func _sync_scene() -> void:
 			var pos := _seat_position(number) + Vector3((hand_index - (hands.size() - 1) / 2.0) * .85, .025, -.32)
 			_sync_hand(hand.get("cards", []), pos, live_cards, false)
 			if not hand.get("cards", []).is_empty():
-				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), pos + Vector3(0, .10, -.28), live_totals)
+				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), Vector3(pos.x, FELT_SURFACE_Y + .12, pos.z - .25), live_totals)
 			var chip_id := "%s-%s" % [number, hand_index]
 			var bet_amount := int(hand.get("bet", 0))
 			if bet_amount > 0:
@@ -760,7 +769,7 @@ func _sync_scene() -> void:
 					chips[chip_id] = _create_chip(bet_amount, pos + Vector3(0, .02, .4), has_initial_state)
 		# Seat numbers are ink on the felt; ownership stays in the controls.
 		label.text = str(number)
-		label.modulate = Color("c0b18c")
+		label.modulate = Color("ded0aa")
 		seat_rings[number].material_override = _felt_ink(Color("c9b98f") if own else Color("a5a180") if empty else Color("797b6b"))
 
 	var dealer: Dictionary = table.get("dealer", {})
@@ -770,7 +779,7 @@ func _sync_scene() -> void:
 		if index != 1 or dealer.get("holeCardRevealed", false):
 			visible_dealer.append(dealer.cards[index])
 	if not visible_dealer.is_empty():
-		_sync_total("dealer", _hand_total(visible_dealer), Vector3(-.12, 1.29, -1.12), live_totals, dealer.get("cards", []).size() > visible_dealer.size())
+		_sync_total("dealer", _hand_total(visible_dealer), Vector3(-.12, FELT_SURFACE_Y + .14, -1.12), live_totals, dealer.get("cards", []).size() > visible_dealer.size())
 	for id in hand_totals.keys():
 		if not live_totals.has(id):
 			hand_totals[id].queue_free()
@@ -803,9 +812,9 @@ func _hand_total(hand_cards: Array) -> int:
 func _sync_total(id: String, total: int, at: Vector3, live: Dictionary, hidden_card := false) -> void:
 	live[id] = true
 	if not hand_totals.has(id):
-		var label := _label_3d("", at, 36)
+		var label := _label_3d("", at, 42)
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		label.pixel_size = .0024
+		label.pixel_size = .0027
 		label.outline_size = 3
 		label.outline_modulate = Color("071510")
 		label.alpha_cut = Label3D.ALPHA_CUT_DISABLED
@@ -813,7 +822,7 @@ func _sync_total(id: String, total: int, at: Vector3, live: Dictionary, hidden_c
 	var label: Label3D = hand_totals[id]
 	label.position = at
 	label.text = str(total) + (" + ?" if hidden_card else "")
-	label.modulate = Color("f08c86") if total > 21 else Color("eadabb")
+	label.modulate = Color("f08c86") if total > 21 else Color("fff2d8")
 
 func _sync_hand(hand_cards: Array, origin: Vector3, live: Dictionary, hide_second: bool) -> void:
 	# Reveal both values on a normal two-card hand. Longer hands fan more
@@ -824,7 +833,8 @@ func _sync_hand(hand_cards: Array, origin: Vector3, live: Dictionary, hide_secon
 		var card: Dictionary = hand_cards[index]
 		var id := str(card.id)
 		live[id] = true
-		var destination := origin + Vector3((index - (count - 1) / 2.0) * spacing, index * .012, index * .015)
+		var destination := origin + Vector3((index - (count - 1) / 2.0) * spacing, 0, index * .015)
+		destination.y = FELT_SURFACE_Y + .0019 + index * .0031
 		var hidden := hide_second and index == 1
 		if not cards.has(id):
 			cards[id] = _create_card(card, destination, hidden, animated_cards.has(id))
@@ -849,8 +859,8 @@ func _create_card(card: Dictionary, destination: Vector3, hidden: bool, animate:
 	root.name = "Card_" + str(card.id).replace("-", "_")
 	root.set_meta("hidden", hidden)
 	add_child(root)
-	_box(Vector3(.30, .008, .42), Vector3.ZERO, _material(Color("fffdf4"), 0, .85), root)
-	var back := _box(Vector3(.28, .001, .40), Vector3(0, -.005, 0), _material(Color("732638")), root)
+	_box(Vector3(.30, .0028, .42), Vector3.ZERO, _material(Color("fffdf4"), 0, .85), root)
+	var back := _box(Vector3(.28, .0005, .40), Vector3(0, -.00165, 0), _material(Color("732638")), root)
 	back.name = "Back"
 	var face := Node3D.new()
 	face.name = "Face"
@@ -860,10 +870,10 @@ func _create_card(card: Dictionary, destination: Vector3, hidden: bool, animate:
 	var glyph: String = {"spades": "♠", "hearts": "♥", "diamonds": "♦", "clubs": "♣"}.get(suit, "♠")
 	var ink := Color("a00e2b") if suit in ["hearts", "diamonds"] else Color("09111a")
 	var rank := str(card.get("rank", "A"))
-	_card_ink(face, rank, Vector3(-.091, .006, -.133), 38, ink)
-	_card_ink(face, glyph, Vector3(-.091, .006, -.051), 26, ink)
-	_card_ink(face, glyph, Vector3(.041, .006, .037), 68, ink)
-	_card_ink(face, rank, Vector3(.098, .006, .141), 27, ink)
+	_card_ink(face, rank, Vector3(-.091, .002, -.133), 42, ink)
+	_card_ink(face, glyph, Vector3(-.091, .002, -.051), 26, ink)
+	_card_ink(face, glyph, Vector3(.041, .002, .037), 68, ink)
+	_card_ink(face, rank, Vector3(.098, .002, .141), 27, ink)
 	if hidden: root.rotation_degrees.z = 180
 	root.position = destination
 	if animate and not reduced_motion:
@@ -875,32 +885,100 @@ func _create_card(card: Dictionary, destination: Vector3, hidden: bool, animate:
 		tween.tween_callback(func(): root.set_meta("flying", false))
 	return root
 
+func _chip_color(value: int) -> Color:
+	return {100: Color("ac263b"), 200: Color("255b99"), 300: Color("256d50"), 400: Color("272930"), 500: Color("63448a"), 50: Color("aa8646"), 25: Color("256d50"), 10: Color("255b99"), 5: Color("ac263b")}.get(value, Color("65706b"))
+
+func _chip_values(amount: int) -> Array[int]:
+	# Each physical chip has a real denomination; a stack must sum to its bet.
+	var values: Array[int] = []
+	var remaining := amount
+	for value in [500, 400, 300, 200, 100, 50, 25, 10, 5, 1]:
+		while remaining >= value:
+			values.append(value)
+			remaining -= value
+	return values
+
+func _chip_marks(parent: Node3D, count: int, spread: float, color: Color, face: bool) -> void:
+	var edge_radius := CHIP_RADIUS + (.00008 if count == 64 else .00016)
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for mark in count:
+		for step in range(3):
+			var a := TAU * mark / count + lerpf(-spread / 2, spread / 2, step / 3.0)
+			var b := TAU * mark / count + lerpf(-spread / 2, spread / 2, (step + 1) / 3.0)
+			var ra := Vector3(cos(a), 0, sin(a))
+			var rb := Vector3(cos(b), 0, sin(b))
+			var top := Vector3.UP * (CHIP_HEIGHT + .0004)
+			if face:
+				for vertex in [ra * CHIP_RADIUS * .75 + top, rb * edge_radius + top, ra * edge_radius + top, ra * CHIP_RADIUS * .75 + top, rb * CHIP_RADIUS * .75 + top, rb * edge_radius + top]:
+					surface.set_normal(Vector3.UP)
+					surface.add_vertex(vertex)
+			var low := .002 if face else .003
+			var high := CHIP_HEIGHT - (.002 if face else .003)
+			for vertex in [ra * edge_radius + Vector3.UP * low, rb * edge_radius + Vector3.UP * high, ra * edge_radius + Vector3.UP * high, ra * edge_radius + Vector3.UP * low, rb * edge_radius + Vector3.UP * low, rb * edge_radius + Vector3.UP * high]:
+				surface.set_normal((ra + rb).normalized())
+				surface.add_vertex(vertex)
+	var material := _material(color, 0, .68)
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mesh(surface.commit(), material, Vector3.ZERO, parent)
+
+func _chip_coin(value: int, face := true) -> Node3D:
+	var coin := Node3D.new()
+	coin.set_meta("denomination", value)
+	var color := _chip_color(value)
+	var body := _cylinder(CHIP_RADIUS, CHIP_HEIGHT, Vector3(0, CHIP_HEIGHT / 2, 0), _material(color, 0, .65), coin)
+	body.name = "ClayBody"
+	# Fine edge grooves and eight ivory inserts go through the rim.
+	_chip_marks(coin, 64, deg_to_rad(.7), color.darkened(.32), false)
+	_chip_marks(coin, 8, deg_to_rad(16), Color("e7dfc9"), face)
+	if face:
+		_cylinder(.060, .0006, Vector3(0, CHIP_HEIGHT + .0003, 0), _material(Color("f0ead8"), 0, .8), coin)
+		for radius in [.062, .072]:
+			var ring := TorusMesh.new()
+			ring.inner_radius = radius - .0007
+			ring.outer_radius = radius + .0007
+			ring.rings = 48
+			ring.ring_segments = 6
+			_mesh(ring, _material(Color("e7dfc9") if radius > .07 else color, 0, .8), Vector3(0, CHIP_HEIGHT + .0007, 0), coin)
+		var printed := _label_3d(str(value), Vector3.ZERO, 40, Color("17232a"))
+		remove_child(printed)
+		coin.add_child(printed)
+		printed.position = Vector3(0, CHIP_HEIGHT + .0012, 0)
+		printed.font = FELT_FONT
+		printed.pixel_size = .00145
+		printed.rotation_degrees.x = -90
+		printed.scale.y = 1.25
+	return coin
+
 func _create_chip(amount: int, destination: Vector3, animate: bool) -> Node3D:
 	var root := Node3D.new()
 	root.set_meta("amount", amount)
 	add_child(root)
-	var color: Color = {100: Color("b83243"), 200: Color("2e609e"), 300: Color("26805b"), 400: Color("353932"), 500: Color("744698")}.get(amount, GOLD)
-	var count := clampi(int(ceil(amount / 100.0)), 1, 6)
-	for index in count:
-		_cylinder(.085, .022, Vector3(0, index * .025, 0), _material(color, .05), root)
-		var stripe := TorusMesh.new()
-		stripe.inner_radius = .060
-		stripe.outer_radius = .069
-		stripe.rings = 32
-		stripe.ring_segments = 6
-		_mesh(stripe, _material(CREAM), Vector3(0, index * .025 + .012, 0), root)
-	var label := _label_3d(str(amount), Vector3.ZERO, 30, CREAM)
-	remove_child(label)
-	root.add_child(label)
-	label.position = Vector3(0, count * .025, 0)
-	label.pixel_size = .0018
-	label.rotation_degrees.x = -90
+	var values := _chip_values(amount)
+	for index in values.size():
+		var coin := _chip_coin(values[index], index == values.size() - 1)
+		coin.name = "Coin%s" % index
+		coin.position.y = index * CHIP_HEIGHT
+		coin.rotation.y = index * .12
+		root.add_child(coin)
+	# A small camera-facing amount is readable without enlarging the objects.
+	var amount_label := _label_3d(str(amount), Vector3.ZERO, 38, Color("fff2d8"))
+	remove_child(amount_label)
+	root.add_child(amount_label)
+	amount_label.name = "BetAmount"
+	amount_label.position = Vector3(-.20, values.size() * CHIP_HEIGHT + .04, .09)
+	amount_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	amount_label.pixel_size = .0020
+	amount_label.outline_size = 2
+	amount_label.outline_modulate = Color("071510")
+	amount_label.alpha_cut = Label3D.ALPHA_CUT_DISABLED
+	destination.y = FELT_SURFACE_Y + .0004
 	root.position = destination
 	if animate and not reduced_motion:
-		var from := destination + Vector3(0, .6, 1.0)
-		root.position = from
+		# Slide along the felt; no airborne bounce or gap after landing.
+		root.position = destination + Vector3(0, 0, .12)
 		var tween := create_tween()
-		tween.tween_property(root, "position", destination, .42).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		tween.tween_property(root, "position", destination, .28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		_play_sound(true)
 	return root
 

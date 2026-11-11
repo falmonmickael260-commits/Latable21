@@ -28,6 +28,7 @@ godot --path godot -- --server=ws://127.0.0.1:3000 --pseudo=Mickael
 - Caméra basse face à la table, déplacement animé vers une place confirmée par le serveur. Cliquer sur un cercle du tapis ou sur un bouton de place pour s’asseoir.
 - Places libres, personnelles et occupées distinctes. La prise d’une place occupée est rejetée côté serveur.
 - Possibilité de réserver plusieurs cases libres ; sélectionner une de ses cases dans la barre, puis choisir sa mise. Chaque case a sa propre main, sa pile de jetons et son résultat.
+- Jetons en argile satinée avec huit repères ivoire, tranches striées et médaillon central. Les piles reposent sur le tapis, leurs valeurs additionnées correspondent à la mise et un petit montant orienté vers le joueur reste lisible.
 - Cartes fines et rapprochées, valeurs et symboles contrastés, total discret et lisible juste au-dessus de chaque main (indépendant pour les cases et mains séparées). Le total du croupier exclut toute carte encore cachée.
 - Cartes 3D distribuées depuis les mains du croupier, jetons qui se posent, mouvement du bras synchronisé aux distributions, respiration et sons synthétisés.
 - Tirer, rester, doubler et séparer selon les possibilités de la main active, avec délai de décision et résultats du serveur.
@@ -69,6 +70,7 @@ npm run build
 npm run test:godot
 godot --headless --path godot --script tests/scene_test.gd
 godot --headless --path godot --script tests/cards_test.gd
+godot --headless --path godot --script tests/chips_test.gd
 ```
 
 `npm run build` exporte Godot, puis construit Next.js. Le pipeline GitHub installe Godot et ses templates et fournit un artefact `la-table-21-godot-web`. Les fichiers générés dans `public/game/` ne sont pas versionnés. Pour mettre à jour le rendu local après une modification Godot, relancer `npm run game:export`.
