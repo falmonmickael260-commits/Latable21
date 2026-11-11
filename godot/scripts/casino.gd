@@ -709,7 +709,7 @@ func _sync_scene() -> void:
 			var pos := _seat_position(number) + Vector3((hand_index - (hands.size() - 1) / 2.0) * .85, .025, -.32)
 			_sync_hand(hand.get("cards", []), pos, live_cards, false)
 			if not hand.get("cards", []).is_empty():
-				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), pos + Vector3(0, .16, -.34), live_totals)
+				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), pos + Vector3(0, .10, -.28), live_totals)
 			var chip_id := "%s-%s" % [number, hand_index]
 			var bet_amount := int(hand.get("bet", 0))
 			if bet_amount > 0:
@@ -729,7 +729,7 @@ func _sync_scene() -> void:
 		if index != 1 or dealer.get("holeCardRevealed", false):
 			visible_dealer.append(dealer.cards[index])
 	if not visible_dealer.is_empty():
-		_sync_total("dealer", _hand_total(visible_dealer), Vector3(-.12, 1.35, -1.19), live_totals, dealer.get("cards", []).size() > visible_dealer.size())
+		_sync_total("dealer", _hand_total(visible_dealer), Vector3(-.12, 1.29, -1.12), live_totals, dealer.get("cards", []).size() > visible_dealer.size())
 	for id in hand_totals.keys():
 		if not live_totals.has(id):
 			hand_totals[id].queue_free()
@@ -762,23 +762,23 @@ func _hand_total(hand_cards: Array) -> int:
 func _sync_total(id: String, total: int, at: Vector3, live: Dictionary, hidden_card := false) -> void:
 	live[id] = true
 	if not hand_totals.has(id):
-		var label := _label_3d("", at, 56)
+		var label := _label_3d("", at, 36)
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		label.pixel_size = .0034
-		label.outline_size = 14
+		label.pixel_size = .0024
+		label.outline_size = 3
 		label.outline_modulate = Color("071510")
 		label.alpha_cut = Label3D.ALPHA_CUT_DISABLED
 		hand_totals[id] = label
 	var label: Label3D = hand_totals[id]
 	label.position = at
 	label.text = str(total) + (" + ?" if hidden_card else "")
-	label.modulate = Color("f08c86") if total > 21 else Color("fff1c7")
+	label.modulate = Color("f08c86") if total > 21 else Color("eadabb")
 
 func _sync_hand(hand_cards: Array, origin: Vector3, live: Dictionary, hide_second: bool) -> void:
 	# Reveal both values on a normal two-card hand. Longer hands fan more
 	# tightly to stay within their case, preserving the corner index.
 	var count := hand_cards.size()
-	var spacing := minf(.44, .66 / maxf(1, count - 1))
+	var spacing := minf(.285, .52 / maxf(1, count - 1))
 	for index in count:
 		var card: Dictionary = hand_cards[index]
 		var id := str(card.id)
@@ -808,8 +808,8 @@ func _create_card(card: Dictionary, destination: Vector3, hidden: bool, animate:
 	root.name = "Card_" + str(card.id).replace("-", "_")
 	root.set_meta("hidden", hidden)
 	add_child(root)
-	_box(Vector3(.40, .012, .56), Vector3.ZERO, _material(Color("fffdf4"), 0, .85), root)
-	var back := _box(Vector3(.38, .001, .54), Vector3(0, -.007, 0), _material(Color("732638")), root)
+	_box(Vector3(.30, .008, .42), Vector3.ZERO, _material(Color("fffdf4"), 0, .85), root)
+	var back := _box(Vector3(.28, .001, .40), Vector3(0, -.005, 0), _material(Color("732638")), root)
 	back.name = "Back"
 	var face := Node3D.new()
 	face.name = "Face"
@@ -819,10 +819,10 @@ func _create_card(card: Dictionary, destination: Vector3, hidden: bool, animate:
 	var glyph: String = {"spades": "♠", "hearts": "♥", "diamonds": "♦", "clubs": "♣"}.get(suit, "♠")
 	var ink := Color("a00e2b") if suit in ["hearts", "diamonds"] else Color("09111a")
 	var rank := str(card.get("rank", "A"))
-	_card_ink(face, rank, Vector3(-.12, .009, -.177), 50, ink)
-	_card_ink(face, glyph, Vector3(-.12, .009, -.068), 35, ink)
-	_card_ink(face, glyph, Vector3(.055, .010, .05), 96, ink)
-	_card_ink(face, rank, Vector3(.13, .009, .188), 35, ink)
+	_card_ink(face, rank, Vector3(-.091, .006, -.133), 38, ink)
+	_card_ink(face, glyph, Vector3(-.091, .006, -.051), 26, ink)
+	_card_ink(face, glyph, Vector3(.041, .006, .037), 68, ink)
+	_card_ink(face, rank, Vector3(.098, .006, .141), 27, ink)
 	if hidden: root.rotation_degrees.z = 180
 	root.position = destination
 	if animate and not reduced_motion:
@@ -841,18 +841,18 @@ func _create_chip(amount: int, destination: Vector3, animate: bool) -> Node3D:
 	var color: Color = {100: Color("b83243"), 200: Color("2e609e"), 300: Color("26805b"), 400: Color("353932"), 500: Color("744698")}.get(amount, GOLD)
 	var count := clampi(int(ceil(amount / 100.0)), 1, 6)
 	for index in count:
-		_cylinder(.13, .028, Vector3(0, index * .03, 0), _material(color, .05), root)
+		_cylinder(.085, .022, Vector3(0, index * .025, 0), _material(color, .05), root)
 		var stripe := TorusMesh.new()
-		stripe.inner_radius = .095
-		stripe.outer_radius = .105
+		stripe.inner_radius = .060
+		stripe.outer_radius = .069
 		stripe.rings = 32
 		stripe.ring_segments = 6
-		_mesh(stripe, _material(CREAM), Vector3(0, index * .03 + .015, 0), root)
-	var label := _label_3d(str(amount), Vector3.ZERO, 38, CREAM)
+		_mesh(stripe, _material(CREAM), Vector3(0, index * .025 + .012, 0), root)
+	var label := _label_3d(str(amount), Vector3.ZERO, 30, CREAM)
 	remove_child(label)
 	root.add_child(label)
-	label.position = Vector3(0, count * .03, 0)
-	label.pixel_size = .002
+	label.position = Vector3(0, count * .025, 0)
+	label.pixel_size = .0018
 	label.rotation_degrees.x = -90
 	root.position = destination
 	if animate and not reduced_motion:

@@ -28,7 +28,7 @@ godot --path godot -- --server=ws://127.0.0.1:3000 --pseudo=Mickael
 - Caméra basse face à la table, déplacement animé vers une place confirmée par le serveur. Cliquer sur un cercle du tapis ou sur un bouton de place pour s’asseoir.
 - Places libres, personnelles et occupées distinctes. La prise d’une place occupée est rejetée côté serveur.
 - Possibilité de réserver plusieurs cases libres ; sélectionner une de ses cases dans la barre, puis choisir sa mise. Chaque case a sa propre main, sa pile de jetons et son résultat.
-- Cartes agrandies, valeurs et symboles contrastés, total lisible juste au-dessus de chaque main (indépendant pour les cases et mains séparées). Le total du croupier exclut toute carte encore cachée.
+- Cartes fines et rapprochées, valeurs et symboles contrastés, total discret et lisible juste au-dessus de chaque main (indépendant pour les cases et mains séparées). Le total du croupier exclut toute carte encore cachée.
 - Cartes 3D distribuées depuis les mains du croupier, jetons qui se posent, mouvement du bras synchronisé aux distributions, respiration et sons synthétisés.
 - Tirer, rester, doubler et séparer selon les possibilités de la main active, avec délai de décision et résultats du serveur.
 - Reconnexion automatique avec identité conservée dans le stockage utilisateur Godot/IndexedDB. Les actions restent désactivées pendant la déconnexion.
