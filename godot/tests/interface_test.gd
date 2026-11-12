@@ -26,6 +26,10 @@ func _run() -> void:
 	for button in scene.actions_row.get_children(): assert(not button.disabled, "A legal pair and sufficient balance enable all decisions")
 	assert(not scene.seat_rings[4].visible and scene.seat_rings[1].visible, "Occupied cases are free of circles while free cases remain marked")
 	print("GODOT INTERFACE: chip choices, legal actions, phone fit and occupied-circle visibility passed")
+	scene.ambience_player.stop()
+	scene.sound_player.stop()
 	scene.queue_free()
 	await process_frame
+	await process_frame
+	await create_timer(.10).timeout
 	quit(0)

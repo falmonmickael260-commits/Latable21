@@ -34,9 +34,15 @@ func _run() -> void:
 	for id in ["demo-3-a", "demo-4-a", "demo-dealer"]:
 		var card: Node3D = scene.cards[id]
 		var stock: MeshInstance3D = card.get_child(0)
-		var bottom: float = stock.global_position.y + stock.mesh.get_aabb().position.y
-		assert(bottom >= felt_top and bottom - felt_top < .001, "First cards rest on the felt rather than hovering")
+		var bottom := INF
+		for index in range(8):
+			bottom = minf(bottom, (stock.global_transform * stock.mesh.get_aabb().get_endpoint(index)).y)
+		assert(bottom >= felt_top and bottom - felt_top < .001, "Tilted cards touch the felt with their lower edge")
+	scene.ambience_player.stop()
+	scene.sound_player.stop()
 	scene.queue_free()
 	await process_frame
+	await process_frame
+	await create_timer(.10).timeout
 	print("GODOT CHIPS: contact with felt, touching stack layers, denomination sums, planar placement and grounded cards passed")
 	quit(0)

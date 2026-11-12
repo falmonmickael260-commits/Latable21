@@ -37,3 +37,4 @@ jobs:
           godot --headless --path godot --script tests/cards_test.gd
           godot --headless --path godot --script tests/chips_test.gd
           godot --headless --path godot --script tests/interface_test.gd
+          godot --headless --path godot --script tests/atmosphere_test.gd

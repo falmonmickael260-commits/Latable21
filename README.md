@@ -24,19 +24,19 @@ godot --path godot -- --server=ws://127.0.0.1:3000 --pseudo=Mickael
 
 ## Expérience de jeu
 
-- Une salle et une table **en vraie 3D**, avec plateau compact, tapis vert à microtexture, habillage en noyer et accoudoir en cuir à double couture. Un filet de laiton, un double piètement et un repose-pieds relié à ses supports complètent le mobilier. Le sabot incliné et le plateau de jetons sont modélisés séparément. Le tapis porte des marquages plats : cases numérotées dont le cercle disparaît dès qu’une place est occupée, mentions du blackjack en arc, règle du croupier à 17 et mises 100–500, dans une typographie serif.
-- Caméra basse face à la table, déplacement animé vers une place confirmée par le serveur. Cliquer sur un cercle du tapis ou sur un bouton de place pour s’asseoir.
+- Une salle et une table **en vraie 3D**, avec plateau compact, tapis vert à microtexture, habillage en noyer et accoudoir en cuir à double couture. Un filet de laiton, un double piètement et un repose-pieds relié à ses supports complètent le mobilier. Le sabot incliné et le plateau de jetons sont modélisés séparément. Un emblème original à pique, monogramme 21 et lauriers éclairés habille le mur, avec deux tableaux de casino encadrés et éclairés. Le tapis porte des marquages vectoriels en français (blackjack européen, paiement 3 pour 2, croupier à 17 et limites de mise) : cases numérotées dont le cercle disparaît dès qu’une place est occupée, mentions du blackjack en arc, règle du croupier à 17 et mises 100–500, dans une typographie serif.
+- Caméra à hauteur de joueur, légèrement surélevée pour mieux voir la main du croupier et le tapis, déplacement animé vers une place confirmée par le serveur. Cliquer sur un cercle du tapis ou sur un bouton de place pour s’asseoir.
 - Places libres, personnelles et occupées distinctes. La prise d’une place occupée est rejetée côté serveur.
 - Possibilité de réserver plusieurs cases libres ; sélectionner une de ses cases dans la barre, puis choisir sa mise. Chaque case a sa propre main, sa pile de jetons et son résultat.
 - Jetons en argile satinée avec huit repères ivoire, tranches striées et médaillon central. Les piles reposent sur le tapis, leurs valeurs additionnées correspondent à la mise et un petit montant orienté vers le joueur reste lisible.
-- Cartes fines et rapprochées, valeurs et symboles contrastés, total discret et lisible juste au-dessus de chaque main (indépendant pour les cases et mains séparées). Le total du croupier exclut toute carte encore cachée.
-- Cartes 3D distribuées depuis les mains du croupier, jetons qui se posent, mouvement du bras synchronisé aux distributions, respiration et sons synthétisés.
+- Cartes fines aux coins arrondis, inclinées de 22° vers le joueur avec leur bord posé sur le tapis. Faces vectorielles de 768×1075, indices agrandis, vrais motifs numérotés et figures illustrées ; filtrage anisotrope et mipmaps. Valeurs et symboles contrastés, total discret et lisible juste au-dessus de chaque main (indépendant pour les cases et mains séparées). Le total du croupier exclut toute carte encore cachée.
+- Cartes 3D distribuées depuis le sabot avec prise et retour du bras articulé au coude, puis ramassage vers un plateau de défausse. Visage détaillé, léger mouvement du regard et respiration discrète. Fauteuils rembourrés à coutures et coque en bois. Sons de frottement et de jetons, fond de salle non verbal et commande Son qui coupe aussi l’ambiance.
 - Tirer, rester, doubler et séparer selon les possibilités de la main active, avec délai de décision et résultats du serveur.
 - Reconnexion automatique avec identité conservée dans le stockage utilisateur Godot/IndexedDB. Les actions restent désactivées pendant la déconnexion.
 
 Le rendu active l’anticrénelage MSAA, le filtrage anisotrope et les polices 3D MSDF. La bordure et les sièges sont arrondis, le costume et le visage utilisent des surfaces à normales lissées, et l’éclairage neutre conserve les couleurs du tapis et du laiton.
 
-La direction visuelle actuelle est **stylisée et procédurale** : le croupier est constitué de maillages Godot animés, pas d’un humain photoréaliste ni d’un personnage capturé. Les formes et matériaux sont des bases modifiables dans le projet ; aucun service de génération ou asset payant n’est nécessaire.
+La direction visuelle actuelle est **stylisée et procédurale** : le croupier associe un visage maillé dérivé de MakeHuman (CC0) à une veste et un bras articulé dans Godot ; il ne s’agit pas d’un personnage photoréaliste capturé. Les formes et matériaux sont des bases modifiables dans le projet ; aucun service de génération ou asset payant n’est nécessaire.
 
 ## Aperçu de la plateforme
 
@@ -47,6 +47,12 @@ La direction visuelle actuelle est **stylisée et procédurale** : le croupier e
 ![Sélecteur de jetons](docs/visuels/plateforme-jetons.png)
 
 Captures réelles du navigateur : accueil et tables réseau.
+
+## Salon, cartes et identité de casino
+
+![Salon et cartes retravaillés](docs/visuels/salon-complet-hd.png)
+
+Capture réelle de l’export WebGL en démonstration locale.
 
 ## Table bois, cuir et tapis vert
 
@@ -116,3 +122,7 @@ Le Dockerfile construit Godot 4.6.3 et Next.js, puis démarre le serveur avec No
 Sur Railway, monter un volume persistant à **`/data`** et définir `TABLE21_DATABASE_PATH=/data/table21.sqlite`. Utiliser **une seule instance** sans chevauchement entre versions : les rooms sont en mémoire et cette base SQLite appartient à un seul processus. Sans volume, une nouvelle image perdrait les comptes. Ne pas ouvrir un second serveur sur la même base pendant une partie. Sauvegarder le volume avec les outils d’hébergement. Les anciens comptes de la version en mémoire ne sont pas migrés automatiquement.
 
 Pour une installation locale, le fichier est créé dans `data/table21.sqlite` (ignoré par Git). Les tests Node utilisent une base isolée en mémoire.
+
+## Sources des nouveaux éléments visuels et sonores
+
+Le visage est dérivé du maillage MakeHuman hm08 distribué en CC0 : provenance et licence dans `godot/assets/dealer/`. `scripts/build-dealer-head.py` permet de reconstruire le GLB dans Blender à partir du fichier source ; le jeu utilise le GLB déjà construit. Les illustrations des deux tableaux ont été générées pour ce projet et sont intégrées dans `godot/assets/art/casino-diptych.png`. L’emblème, les inscriptions et les cartes sont dessinés par `brand_art.gd` et `card_art.gd`, avec les polices libres déjà embarquées et leurs licences. Les sons originaux, non verbaux et synthétisés, sont reproductibles avec `python3 scripts/build-casino-audio.py`. Aucun service de génération n’est appelé pendant le jeu.

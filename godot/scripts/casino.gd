@@ -2,6 +2,9 @@ extends Node3D
 ## A real 3D casino scene. Geometry, UI and animation are independent of the
 ## authoritative blackjack engine. No external assets or paid services required.
 
+const BrandArt = preload("res://scripts/brand_art.gd")
+const CardArt = preload("res://scripts/card_art.gd")
+const CARD_TILT = deg_to_rad(22.0)
 const NetworkScript = preload("res://scripts/casino_network.gd")
 const FONT = preload("res://assets/table-font.ttf")
 const FELT_FONT = preload("res://assets/felt-serif.ttf")
@@ -16,6 +19,14 @@ var net: CasinoNetwork
 var camera: Camera3D
 var dealer_arm: Node3D
 var dealer_body: Node3D
+var dealer_head: Node3D
+var dealer_upper_arm: MeshInstance3D
+var dealer_forearm: MeshInstance3D
+var dealer_cuff: MeshInstance3D
+var dealer_hand: Node3D
+var dealer_look := 0.0
+var ambience_player: AudioStreamPlayer
+var last_collect_sound := -10.0
 var phase_label: Label
 var balance_label: Label
 var guidance: Label
@@ -56,6 +67,7 @@ var compact := false
 var embedded_mode := false
 var status_row: HBoxContainer
 var chip_button_textures: Dictionary = {}
+var card_face_textures: Dictionary = {}
 
 func _ready() -> void:
 	if OS.has_feature("web"):
@@ -79,7 +91,17 @@ func _ready() -> void:
 	net.round_result.connect(_on_results)
 	pseudo_input.text = net.pseudo if net.pseudo != "JOUEUR" else ""
 	sound_player = AudioStreamPlayer.new()
+	sound_player.volume_db = -14
+	sound_player.max_polyphony = 6
 	add_child(sound_player)
+	ambience_player = AudioStreamPlayer.new()
+	var ambience: AudioStreamWAV = load("res://assets/sounds/salon-ambience.wav")
+	ambience.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	ambience.loop_end = int(ambience.get_length()*ambience.mix_rate)
+	ambience_player.stream = ambience
+	ambience_player.volume_db = -30
+	add_child(ambience_player)
+	ambience_player.play()
 	if demo_mode:
 		_start_demo()
 	else:
@@ -155,8 +177,8 @@ func _build_room() -> void:
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color("080f13")
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("becbd5")
-	environment.ambient_light_energy = .22
+	environment.ambient_light_color = Color("c8c7bd")
+	environment.ambient_light_energy = .29
 	# A dim sky supplies neutral reflections to the brass and leather.
 	var sky := Sky.new()
 	var sky_material := ProceduralSkyMaterial.new()
@@ -176,7 +198,7 @@ func _build_room() -> void:
 	key.light_color = Color("fff5e9")
 	key.light_energy = .48
 	key.shadow_enabled = true
-	key.light_angular_distance = 1.5
+	key.light_angular_distance = 4.0
 	key.directional_shadow_max_distance = 18
 	key.shadow_bias = .03
 	add_child(key)
@@ -214,15 +236,69 @@ func _build_room() -> void:
 		lamp.light_energy = .45
 		lamp.omni_range = 3
 		add_child(lamp)
-	var sign_label := _label_3d("21", Vector3(0, 3.9, -5.8), 160, Color("b9a27a"))
-	sign_label.pixel_size = .005
-	_label_3d("S A L O N   P R I V É", Vector3(0, 3.25, -5.79), 27, Color("9a907b"))
+	_build_casino_identity()
+
 	camera = Camera3D.new()
 	camera.position = Vector3(0, 3.7, 7.7)
 	camera.fov = 68
 	camera.current = true
 	add_child(camera)
 	camera.look_at(Vector3(0, 1.25, -.75))
+
+func _wall_print(texture: Texture2D, size_value: Vector2, at: Vector3, material_color := Color.WHITE) -> MeshInstance3D:
+	var material := _material(material_color,.0,.9)
+	material.albedo_texture = texture
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	material.alpha_scissor_threshold = .2
+	var plane := QuadMesh.new()
+	plane.size = size_value
+	var print_mesh := _mesh(plane,material,at)
+	print_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return print_mesh
+
+func _build_casino_identity() -> void:
+	var brass := _material(Color("b99a60"),.72,.29)
+	var dark_wood := _table_material("wood")
+	var emblem := BrandArt.logo()
+	# The emblem sits forward of its wall, with a warm light washing the panel behind it.
+	var silhouette := _wall_print(emblem,Vector2(3.3,2.97),Vector3(0,3.99,-5.77),Color("463718"))
+	silhouette.name = "LogoReliefShadow"
+	var logo := _wall_print(emblem,Vector2(3.24,2.916),Vector3(0,4.0,-5.71))
+	logo.name = "LaTable21IlluminatedCrest"
+	var logo_material: StandardMaterial3D = logo.material_override
+	logo_material.emission_enabled = true
+	logo_material.emission_texture = emblem
+	logo_material.emission = Color("dcc080")
+	logo_material.emission_energy_multiplier = .12
+	var halo := OmniLight3D.new()
+	halo.position = Vector3(0,4.13,-5.38)
+	halo.light_color = Color("ffdc94")
+	halo.light_energy = .45
+	halo.omni_range = 2.1
+	add_child(halo)
+	var artwork := load("res://assets/art/casino-diptych.png") as Texture2D
+	for index in range(2):
+		var x := -3.0 if index == 0 else 3.0
+		var center := Vector3(x,3.12,-5.67)
+		var backing := _box(Vector3(1.85,2.40,.085),center,dark_wood)
+		backing.name = "CasinoPainting%s" % index
+		# Stepped antique-gold frame, linen mount and inset oil painting.
+		_box(Vector3(1.78,2.33,.035),center+Vector3(0,0,.05),brass)
+		_box(Vector3(1.68,2.23,.02),center+Vector3(0,0,.075),_material(Color("20281f")))
+		_box(Vector3(1.56,2.11,.012),center+Vector3(0,0,.09),_material(Color("b9ac8b"),0,.95))
+		var painting := _wall_print(artwork,Vector2(1.42,1.94),center+Vector3(0,0,.103))
+		painting.material_override.uv1_scale = Vector3(.5,1,1)
+		painting.material_override.uv1_offset = Vector3(index*.5,0,0)
+		painting.name = "CasinoOilPainting"
+		var lamp_y := center.y+1.31
+		_box(Vector3(.60,.035,.075),Vector3(x,lamp_y,-5.43),brass)
+		for offset in [-.17,.17]: _segment(Vector3(x+offset,lamp_y,-5.7),Vector3(x+offset,lamp_y,-5.43),.012,brass)
+		var picture_light := OmniLight3D.new()
+		picture_light.position = Vector3(x,lamp_y-.12,-5.21)
+		picture_light.light_color = Color("ffe4b4")
+		picture_light.light_energy = .65
+		picture_light.omni_range = 2.1
+		add_child(picture_light)
 
 func _table_material(kind: String) -> StandardMaterial3D:
 	var colors := {"felt": [Color("123f31"), Color("194b3a")], "wood": [Color("271a13"), Color("513526")], "leather": [Color("15221d"), Color("24332b")]}
@@ -316,10 +392,17 @@ func _build_table() -> void:
 		perimeter.append(Vector3(sin(angle) * 2.375 * 1.06, 1.104, cos(angle) * 2.375 * .70))
 	_printed_curve(perimeter, .003, Color("807e60"))
 
-	_felt_text("LA TABLE 21", Vector3(0, 1.109, -.32), 58, .0020)
-	_felt_arc_text("BLACKJACK PAYS 3 TO 2", 1.3, .015, 104.0)
-	_felt_text("DEALER STANDS ON ALL 17s", Vector3(0, 1.109, .23), 36, .0020)
-	_felt_text("MIN 100\nMAX 500", Vector3(1.55, 1.109, -.25), 34, .0020)
+	var printed_material := _material(Color.WHITE,0,1)
+	printed_material.albedo_texture = BrandArt.felt()
+	printed_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	printed_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	printed_material.alpha_scissor_threshold = .2
+	var printed_plane := PlaneMesh.new()
+	printed_plane.size = Vector2(5.1516,3.402)
+	var felt_print := _mesh(printed_plane,printed_material,Vector3(0,1.106,0))
+	felt_print.name = "EuropeanFeltPrint"
+	felt_print.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 	var dealer_line: Array[Vector3] = []
 	for step in range(61):
 		var angle := deg_to_rad(lerpf(-58, 58, step / 60.0))
@@ -347,20 +430,13 @@ func _build_table() -> void:
 		hitbox.shape = shape
 		body.add_child(hitbox)
 		add_child(body)
-		var chair_pos := Vector3(pos.x * 1.3, .55, pos.z * 1.5)
-		var chair := _sphere(.38, chair_pos, leather)
-		chair.scale = Vector3(1, .22, .9)
-		_cylinder(.045, .5, chair_pos - Vector3(0, .3, 0), gold)
-		var chair_foot := _cylinder(.24, .035, chair_pos - Vector3(0, .53, 0), gold)
-		chair_foot.scale.z = .85
-		var back := _sphere(.4, chair_pos + Vector3(0, .4, .31), leather)
-		back.scale = Vector3(.95, 1, .22)
-		back.rotation.y = _seat_angle(number)
-		seat_chairs[number] = [chair, back]
+		var chair_root := _build_chair(Vector3(pos.x*1.3,.55,pos.z*1.5),_seat_angle(number),leather,wood,gold)
+		seat_chairs[number] = [chair_root]
+
 	# The card shoe and chip tray are physical props, separate from the dealer.
 	var shoe_root := Node3D.new()
 	shoe_root.name = "DealerCardShoe"
-	shoe_root.position = Vector3(1.15, FELT_SURFACE_Y, -1.25)
+	shoe_root.position = Vector3(.85, FELT_SURFACE_Y, -1.40)
 	shoe_root.rotation_degrees.y = -15
 	add_child(shoe_root)
 	_box(Vector3(.44, .035, .62), Vector3(0, .018, 0), wood, shoe_root)
@@ -382,6 +458,66 @@ func _build_table() -> void:
 			var coin := _chip_coin([100, 200, 300, 400, 500][column], layer == 4)
 			add_child(coin)
 			coin.position = Vector3(center_x, 1.172 + layer * CHIP_HEIGHT, -1.25)
+	var discard := _box(Vector3(.38,.07,.52),Vector3(-1.86,1.14,-.92),wood)
+	discard.name = "DiscardTray"
+	for index in range(5): _box(Vector3(.30,.0028,.42),Vector3(-1.86,1.178+index*.003,-.92),_material(Color("732638")))
+
+func _cushion(size_value: Vector3, material: Material, parent: Node3D) -> MeshInstance3D:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var profile := [Vector2(-.5,.86),Vector2(-.34,1),Vector2(.25,1),Vector2(.5,.86)]
+	var rings: Array = []
+	for row in profile:
+		var ring: Array[Vector3] = []
+		for index in range(65):
+			var angle := TAU*index/64.0
+			var x: float = signf(cos(angle))*pow(absf(cos(angle)),.38)*size_value.x*.5*row.y
+			var z: float = signf(sin(angle))*pow(absf(sin(angle)),.38)*size_value.z*.5*row.y
+			ring.append(Vector3(x,row.x*size_value.y,z))
+		rings.append(ring)
+	for row in range(rings.size()-1):
+		for index in range(64):
+			for point in [rings[row][index],rings[row+1][index],rings[row][index+1],rings[row][index+1],rings[row+1][index],rings[row+1][index+1]]: surface.add_vertex(point)
+	for side in [0,3]:
+		for index in range(64):
+			var points: Array = [Vector3(0,profile[side].x*size_value.y,0),rings[side][index],rings[side][index+1]]
+			if side == 3: points.reverse()
+			for point in points: surface.add_vertex(point)
+	surface.index()
+	surface.generate_normals()
+	return _mesh(surface.commit(),material,Vector3.ZERO,parent)
+
+func _cushion_seam(cushion: Node3D, width: float, depth: float, height: float) -> void:
+	var points: Array[Vector3] = []
+	for index in range(129):
+		var angle := TAU*index/128.0
+		points.append(Vector3(signf(cos(angle))*pow(absf(cos(angle)),.38)*width*.43,height*.5+.0004,signf(sin(angle))*pow(absf(sin(angle)),.38)*depth*.43))
+	var seam := _printed_curve(points,.0017,Color("73735a"))
+	remove_child(seam)
+	cushion.add_child(seam)
+
+func _build_chair(at: Vector3, angle: float, leather: Material, wood: Material, gold: Material) -> Node3D:
+	var chair := Node3D.new()
+	chair.name = "UpholsteredChair"
+	chair.position = at
+	chair.rotation.y = angle
+	add_child(chair)
+	var base := _cushion(Vector3(.72,.05,.66),wood,chair)
+	base.position.y = -.075
+	var seat := _cushion(Vector3(.68,.13,.62),leather,chair)
+	_cushion_seam(seat,.68,.62,.13)
+	var shell := _cushion(Vector3(.74,.07,.69),wood,chair)
+	shell.position = Vector3(0,.40,.34)
+	shell.rotation_degrees.x = -84
+	var back := _cushion(Vector3(.68,.13,.63),leather,chair)
+	back.position = Vector3(0,.40,.285)
+	back.rotation_degrees.x = -84
+	_cushion_seam(back,.68,.63,.13)
+	for side in [-1,1]: _segment(Vector3(side*.28,-.08,.27),Vector3(side*.28,.43,.34),.024,wood,chair)
+	_cylinder(.045,.44,Vector3(0,-.31,0),gold,chair)
+	var foot := _cylinder(.24,.035,Vector3(0,-.53,0),gold,chair)
+	foot.scale.z = .85
+	return chair
 
 func _felt_text(text_value: String, at: Vector3, size_value: int, pixel_size_value: float) -> Label3D:
 	var label := _label_3d(text_value, at, size_value, Color("c0b18c"))
@@ -391,13 +527,6 @@ func _felt_text(text_value: String, at: Vector3, size_value: int, pixel_size_val
 	label.scale.y = 1.5
 	label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return label
-
-func _felt_arc_text(text_value: String, radius: float, center_z: float, spread: float) -> void:
-	for index in text_value.length():
-		if text_value[index] == " ": continue
-		var angle := deg_to_rad(lerpf(-spread / 2, spread / 2, float(index) / (text_value.length() - 1)))
-		var label := _felt_text(text_value[index], Vector3(sin(angle) * radius, 1.109, center_z + radius * (1 - cos(angle))), 64, .0022)
-		label.rotation_degrees.y = -rad_to_deg(angle)
 
 func _felt_ink(color: Color) -> StandardMaterial3D:
 	var ink := _material(color, 0, .98)
@@ -499,37 +628,61 @@ func _build_dealer() -> void:
 		var bow := _sphere(.065, Vector3(side*.058,2.18,.31), hair, dealer_body)
 		bow.scale = Vector3(1,.57,.3)
 	_sphere(.023, Vector3(0,2.18,.33), hair, dealer_body)
-	_cylinder(.105, .2, Vector3(0,2.42,0), skin, dealer_body)
-	_tailored_shape([Vector3(2.47,.08,.1),Vector3(2.5,.125,.15),Vector3(2.57,.175,.185),Vector3(2.67,.205,.205),Vector3(2.79,.21,.2),Vector3(2.9,.185,.185),Vector3(2.98,.115,.12),Vector3(3.01,.001,.001)], skin, dealer_body)
-	var hair_cap := _sphere(.22, Vector3(0,2.92,-.035), hair, dealer_body)
-	hair_cap.scale = Vector3(.98,.55,.88)
-	for side in [-1,1]:
-		var ear := _sphere(.045, Vector3(side*.205,2.72,0), skin, dealer_body)
-		ear.scale = Vector3(.5,1,.6)
-		var white := _sphere(.033, Vector3(side*.078,2.775,.183), shirt, dealer_body)
-		white.scale = Vector3(1,.43,.35)
-		var iris := _sphere(.013, Vector3(side*.078,2.773,.195), hair, dealer_body)
-		iris.scale.z = .4
-		_segment(Vector3(side*.043,2.822,.178),Vector3(side*.113,2.814,.17),.009,hair,dealer_body)
-	var nose := _sphere(.031, Vector3(0,2.695,.21),skin,dealer_body)
-	nose.scale = Vector3(.65,1.5,1.2)
-	_segment(Vector3(-.052,2.601,.177),Vector3(0,2.592,.19),.006,_material(Color("805e55")),dealer_body)
-	_segment(Vector3(0,2.592,.19),Vector3(.052,2.601,.177),.006,_material(Color("805e55")),dealer_body)
+	_cylinder(.095,.25,Vector3(0,2.43,0),skin,dealer_body)
+	dealer_head = Node3D.new()
+	dealer_head.position = Vector3(0,2.69,0)
+	dealer_body.add_child(dealer_head)
+	var head_model = load("res://assets/dealer/dealer-head.glb").instantiate()
+	head_model.scale = Vector3.ONE*1.3
+	head_model.position = Vector3(0,-2.76*1.3,0)
+	dealer_head.add_child(head_model)
+
 	for y in [1.79,1.6]: _sphere(.015,Vector3(.035,y,.24),_material(GOLD,.6),dealer_body)
 	_box(Vector3(.14,.045,.01),Vector3(-.29,2.07,.207),_material(GOLD,.6),dealer_body)
 	_segment(Vector3(-.38,2.14,.02),Vector3(-.53,1.6,.4),.12,suit,dealer_body)
 	_segment(Vector3(-.53,1.6,.4),Vector3(-.26,1.21,.86),.095,suit,dealer_body)
-	_sphere(.09,Vector3(-.26,1.2,.91),skin,dealer_body)
+	var resting_hand := _sphere(.09,Vector3(-.26,1.235,.91),skin,dealer_body)
+	resting_hand.scale = Vector3(.85,.35,1.1)
+	for finger in range(4): _segment(Vector3(-.31+finger*.03,1.225,.96),Vector3(-.31+finger*.03,1.22,1.06),.012,skin,dealer_body)
 	dealer_arm = Node3D.new()
-	dealer_arm.position = Vector3(.38,2.14,.02)
+	dealer_arm.position = Vector3(.24,1.28,.88)
 	dealer_body.add_child(dealer_arm)
-	_segment(Vector3.ZERO,Vector3(.17,-.54,.4),.12,suit,dealer_arm)
-	_segment(Vector3(.17,-.54,.4),Vector3(-.12,-.94,.85),.095,suit,dealer_arm)
-	_cylinder(.097,.06,Vector3(-.12,-.91,.85),shirt,dealer_arm)
-	var hand := _sphere(.1,Vector3(-.12,-.94,.95),skin,dealer_arm)
-	hand.scale = Vector3(.8,.42,1.15)
+	dealer_upper_arm = _cylinder(.105,1,Vector3.ZERO,suit,dealer_body)
+	dealer_forearm = _cylinder(.083,1,Vector3.ZERO,suit,dealer_body)
+	dealer_cuff = _cylinder(.084,.055,Vector3.ZERO,shirt,dealer_body)
+	dealer_hand = Node3D.new()
+	dealer_body.add_child(dealer_hand)
+	var palm := _sphere(.075,Vector3(0,0,.035),skin,dealer_hand)
+	palm.scale = Vector3(1,.33,1.15)
 	for finger in range(4):
-		_segment(Vector3(-.177+finger*.033,-.94,1),Vector3(-.177+finger*.033,-.96,1.09),.016,skin,dealer_arm)
+		var x := -.046+finger*.031
+		_segment(Vector3(x,-.004,.087),Vector3(x,-.009,.14),.012,skin,dealer_hand)
+		_segment(Vector3(x,-.009,.14),Vector3(x,-.018,.163),.010,skin,dealer_hand)
+	_segment(Vector3(-.066,-.008,.035),Vector3(-.089,-.019,.08),.016,skin,dealer_hand)
+	_update_dealer_arm()
+
+func _pose_segment(mesh: MeshInstance3D, from: Vector3, to: Vector3) -> void:
+	mesh.position = (from+to)*.5
+	mesh.quaternion = Quaternion(Vector3.UP,(to-from).normalized())
+	mesh.scale.y = from.distance_to(to)
+
+func _update_dealer_arm() -> void:
+	if not dealer_arm: return
+	var shoulder := Vector3(.38,2.14,.02)
+	var direction: Vector3 = dealer_arm.position-shoulder
+	var distance := clampf(direction.length(),.2,1.30)
+	direction = direction.normalized()
+	var along := (.69*.69-.62*.62+distance*distance)/(2*distance)
+	var height := sqrt(maxf(0,.69*.69-along*along))
+	var bend := (Vector3.RIGHT-direction*direction.dot(Vector3.RIGHT)).normalized()
+	var elbow := shoulder+direction*along+bend*height
+	var wrist := shoulder+direction*distance
+	_pose_segment(dealer_upper_arm,shoulder,elbow)
+	_pose_segment(dealer_forearm,elbow,wrist)
+	dealer_cuff.position = wrist+(elbow-wrist).normalized()*.025
+	dealer_cuff.quaternion = Quaternion(Vector3.UP,(wrist-elbow).normalized())
+	dealer_hand.position = wrist
+	dealer_hand.rotation = Vector3(.03,-dealer_look*.5,0)
 
 func _style_panel(color := Color("101d18"), border := Color("665d41")) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -704,6 +857,17 @@ func _build_ui() -> void:
 	footer_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer_row.add_child(footer_text)
 	if embedded_mode:
+		# Keep the wall emblem unobstructed; round status belongs with the controls.
+		title.remove_child(phase_label)
+		title.remove_child(timer_label)
+		footer_text.hide()
+		footer_row.add_child(phase_label)
+		footer_row.move_child(phase_label,0)
+		phase_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		phase_label.add_theme_font_size_override("font_size",11)
+		footer_row.add_child(timer_label)
+		title.hide()
 		for settings_button in [mute_button, motion_button]:
 			top_row.remove_child(settings_button)
 			footer_row.add_child(settings_button)
@@ -743,6 +907,8 @@ func _build_ui() -> void:
 	_refresh_ui()
 
 func mute_button_update() -> void:
+	if ambience_player: ambience_player.stream_paused = muted
+	if muted and sound_player: sound_player.stop()
 	var buttons := get_tree().root.find_children("SoundToggle", "Button", true, false)
 	for button in buttons: button.text = "Son : OFF" if muted else "Son : ON"
 
@@ -809,9 +975,9 @@ func _move_camera() -> void:
 	var width := get_viewport().get_visible_rect().size.x
 	var height := get_viewport().get_visible_rect().size.y
 	var portrait := width < height
-	var distance := 8.2 if portrait else 4.2 if seated else 5.55
-	var destination := Vector3(sin(angle) * distance, 2.3 if seated else 3.1, cos(angle) * distance)
-	var target := Vector3(0, 1.17, -.25)
+	var distance := 7.7 if portrait else 4.2 if seated else 5.55
+	var destination := Vector3(sin(angle) * distance, 3.05 if portrait else 2.70 if seated else 3.25, cos(angle) * distance)
+	var target := Vector3(0, 1.28, -.25)
 	for number in seat_chairs:
 		for mesh in seat_chairs[number]:
 			mesh.visible = not (seated and number == selected_seat)
@@ -909,10 +1075,13 @@ func _on_deal(payload: Dictionary) -> void:
 	animated_cards[str(payload.card.id)] = true
 	var target: Vector3 = _seat_position(int(payload.seatNumber)) if str(payload.seatNumber) != "dealer" else Vector3(0, 1.16, -.8)
 	if arm_tween: arm_tween.kill()
-	arm_tween = create_tween()
 	if not reduced_motion:
-		arm_tween.tween_property(dealer_arm, "rotation", Vector3(.17, clampf(target.x * -.08, -.4, .4), -.1), .14)
-		arm_tween.tween_property(dealer_arm, "rotation", Vector3.ZERO, .3)
+		arm_tween = create_tween()
+		dealer_look = clampf(target.x*.085,-.16,.16)
+		arm_tween.tween_property(dealer_arm,"position",Vector3(.85,1.38,1.0),.10).set_trans(Tween.TRANS_SINE)
+		arm_tween.tween_property(dealer_arm,"position",Vector3(.18+target.x*.08,1.25,1.07),.17).set_trans(Tween.TRANS_SINE)
+		arm_tween.tween_property(dealer_arm,"position",Vector3(.24,1.28,.88),.15).set_trans(Tween.TRANS_SINE)
+
 	_play_sound(false)
 
 func _sync_scene() -> void:
@@ -930,7 +1099,7 @@ func _sync_scene() -> void:
 			var pos := _seat_position(number) + Vector3((hand_index - (hands.size() - 1) / 2.0) * .85, .025, -.32)
 			_sync_hand(hand.get("cards", []), pos, live_cards, false)
 			if not hand.get("cards", []).is_empty():
-				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), Vector3(pos.x, FELT_SURFACE_Y + .12, pos.z - .25), live_totals)
+				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), Vector3(pos.x, FELT_SURFACE_Y + .25, pos.z - .25), live_totals)
 			var chip_id := "%s-%s" % [number, hand_index]
 			var bet_amount := int(hand.get("bet", 0))
 			if bet_amount > 0:
@@ -951,14 +1120,20 @@ func _sync_scene() -> void:
 		if index != 1 or dealer.get("holeCardRevealed", false):
 			visible_dealer.append(dealer.cards[index])
 	if not visible_dealer.is_empty():
-		_sync_total("dealer", _hand_total(visible_dealer), Vector3(-.12, FELT_SURFACE_Y + .14, -1.12), live_totals, dealer.get("cards", []).size() > visible_dealer.size())
+		_sync_total("dealer", _hand_total(visible_dealer), Vector3(-.12, FELT_SURFACE_Y + .25, -1.12), live_totals, dealer.get("cards", []).size() > visible_dealer.size())
 	for id in hand_totals.keys():
 		if not live_totals.has(id):
 			hand_totals[id].queue_free()
 			hand_totals.erase(id)
 	for id in cards.keys():
 		if not live_cards.has(id):
-			cards[id].queue_free()
+			var discarded: Node3D = cards[id]
+			if not reduced_motion and connected:
+				var collect := create_tween().bind_node(discarded)
+				collect.tween_property(discarded,"position",Vector3(-1.86,1.20,-.92),.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+				collect.tween_callback(discarded.queue_free)
+				if elapsed-last_collect_sound > .5: _play_sound(false); last_collect_sound = elapsed
+			else: discarded.queue_free()
 			cards.erase(id)
 	for id in chips.keys():
 		if not live_chips.has(id):
@@ -1006,54 +1181,81 @@ func _sync_hand(hand_cards: Array, origin: Vector3, live: Dictionary, hide_secon
 		var id := str(card.id)
 		live[id] = true
 		var destination := origin + Vector3((index - (count - 1) / 2.0) * spacing, 0, index * .015)
-		destination.y = FELT_SURFACE_Y + .0019 + index * .0031
+		destination.y = FELT_SURFACE_Y + sin(CARD_TILT) * .21 + cos(CARD_TILT) * .0014 + .0005 + index * .0031
 		var hidden := hide_second and index == 1
 		if not cards.has(id):
 			cards[id] = _create_card(card, destination, hidden, animated_cards.has(id))
 		elif cards[id].get_meta("hidden", false) != hidden:
 			cards[id].set_meta("hidden", hidden)
 			cards[id].get_node("Face").visible = not hidden
-			var flip := create_tween()
-			flip.tween_property(cards[id], "rotation:z", TAU, .01 if reduced_motion else .4)
+			var flip := create_tween().bind_node(cards[id])
+			cards[id].set_meta("flying", true)
+			if not reduced_motion: flip.tween_property(cards[id], "position:y", destination.y + .18, .12)
+			flip.tween_property(cards[id], "rotation:z", TAU, .01 if reduced_motion else .25)
+			flip.tween_property(cards[id], "position", destination, .01 if reduced_motion else .12)
+			flip.tween_callback(func(): if is_instance_valid(cards.get(id)): cards[id].set_meta("flying", false))
 		elif not cards[id].get_meta("flying", false):
 			cards[id].position = destination
 
-func _card_ink(parent: Node3D, text_value: String, at: Vector3, size_value: int, color: Color) -> void:
-	var label := _label_3d(text_value, Vector3.ZERO, size_value, color)
-	remove_child(label)
-	parent.add_child(label)
-	label.position = at
-	label.pixel_size = .0025
-	label.rotation_degrees.x = -90
+func _card_stock(parent: Node3D) -> void:
+	# A thin rounded card, rather than a rectangular box with sharp corners.
+	var outline: Array[Vector2] = []
+	for corner in [Vector2(-.136,-.196),Vector2(.136,-.196),Vector2(.136,.196),Vector2(-.136,.196)]:
+		var start := -PI if corner.x < 0 and corner.y < 0 else -PI/2 if corner.x > 0 and corner.y < 0 else 0.0 if corner.x > 0 else PI/2
+		for step in range(9):
+			var angle := start + PI/2 * step/8.0
+			outline.append(corner + Vector2(cos(angle),sin(angle)) * .014)
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in outline.size():
+		var a := outline[index]
+		var b := outline[(index+1)%outline.size()]
+		for y in [-.0014,.0014]:
+			surface.set_normal(Vector3.UP if y > 0 else Vector3.DOWN)
+			var points := [Vector3(0,y,0),Vector3(b.x,y,b.y),Vector3(a.x,y,a.y)] if y > 0 else [Vector3(0,y,0),Vector3(a.x,y,a.y),Vector3(b.x,y,b.y)]
+			for point in points: surface.add_vertex(point)
+		surface.set_normal(Vector3(a.x,0,a.y).normalized())
+		for point in [Vector3(a.x,-.0014,a.y),Vector3(b.x,-.0014,b.y),Vector3(a.x,.0014,a.y),Vector3(a.x,.0014,a.y),Vector3(b.x,-.0014,b.y),Vector3(b.x,.0014,b.y)]: surface.add_vertex(point)
+	var body := _mesh(surface.commit(), _material(Color("fffdf7"),0,.9),Vector3.ZERO,parent)
+	body.name = "Stock"
 
 func _create_card(card: Dictionary, destination: Vector3, hidden: bool, animate: bool) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Card_" + str(card.id).replace("-", "_")
 	root.set_meta("hidden", hidden)
+	root.rotation.x = CARD_TILT
 	add_child(root)
-	_box(Vector3(.30, .0028, .42), Vector3.ZERO, _material(Color("fffdf4"), 0, .85), root)
-	var back := _box(Vector3(.28, .0005, .40), Vector3(0, -.00165, 0), _material(Color("732638")), root)
+	_card_stock(root)
+	var back := _box(Vector3(.275, .0003, .395), Vector3(0, -.00165, 0), _material(Color("732638")), root)
 	back.name = "Back"
 	var face := Node3D.new()
 	face.name = "Face"
 	face.visible = not hidden
 	root.add_child(face)
 	var suit := str(card.get("suit", "spades"))
-	var glyph: String = {"spades": "♠", "hearts": "♥", "diamonds": "♦", "clubs": "♣"}.get(suit, "♠")
-	var ink := Color("a00e2b") if suit in ["hearts", "diamonds"] else Color("09111a")
 	var rank := str(card.get("rank", "A"))
-	_card_ink(face, rank, Vector3(-.091, .002, -.133), 42, ink)
-	_card_ink(face, glyph, Vector3(-.091, .002, -.051), 26, ink)
-	_card_ink(face, glyph, Vector3(.041, .002, .037), 68, ink)
-	_card_ink(face, rank, Vector3(.098, .002, .141), 27, ink)
+	var key := rank + suit
+	if not card_face_textures.has(key):
+		if card_face_textures.size() >= 16: card_face_textures.erase(card_face_textures.keys()[0])
+		card_face_textures[key] = CardArt.texture(rank,suit)
+	var ink := _material(Color.WHITE,0,1)
+	ink.albedo_texture = card_face_textures[key]
+	ink.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ink.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	ink.alpha_scissor_threshold = .3
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(.30,.42)
+	var print_face := _mesh(plane,ink,Vector3(0,.0017,0),face)
+	print_face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if hidden: root.rotation_degrees.z = 180
 	root.position = destination
 	if animate and not reduced_motion:
 		root.set_meta("flying", true)
-		var from := Vector3(.25, 1.25, -1.42)
+		var from := Vector3(.85, 1.33, -1.40)
 		root.position = from
 		var tween := create_tween()
-		tween.tween_method(func(t: float): root.position = from.lerp(destination, t) + Vector3.UP * sin(t * PI) * .22; root.rotation.y = (1.0 - t) * -.8, 0.0, 1.0, .4)
+		tween.tween_interval(.10)
+		tween.tween_method(func(t: float): root.position = from.lerp(destination, t) + Vector3.UP * sin(t * PI) * .12; root.rotation.y = (1.0 - t) * -.6, 0.0, 1.0, .30).set_trans(Tween.TRANS_SINE)
 		tween.tween_callback(func(): root.set_meta("flying", false))
 	return root
 
@@ -1155,20 +1357,9 @@ func _create_chip(amount: int, destination: Vector3, animate: bool) -> Node3D:
 	return root
 
 func _play_sound(chip: bool) -> void:
-	if muted: return
-	var audio := AudioStreamWAV.new()
-	audio.format = AudioStreamWAV.FORMAT_16_BITS
-	audio.mix_rate = 22050
-	var frames := 1500 if chip else 2500
-	var data := PackedByteArray()
-	data.resize(frames * 2)
-	for frame in frames:
-		var t := float(frame) / 22050.0
-		var envelope := exp(-t * (90.0 if chip else 50.0))
-		var value := sin(t * TAU * (1800.0 if chip else 540.0)) * .25 + sin(t * TAU * 4213.0) * .1
-		data.encode_s16(frame * 2, int(value * envelope * 12000))
-	audio.data = data
-	sound_player.stream = audio
+	if muted or not sound_player: return
+	sound_player.stream = load("res://assets/sounds/clay-chip.wav" if chip else "res://assets/sounds/card-slide.wav")
+	sound_player.pitch_scale = randf_range(.96,1.04)
 	sound_player.play()
 
 func _on_results(results: Array) -> void:
@@ -1193,7 +1384,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	if dealer_body and not reduced_motion: dealer_body.position.y = sin(elapsed * 1.4) * .008
+	if dealer_body and not reduced_motion:
+		dealer_body.position.y = -.1+sin(elapsed*1.4)*.0035
+		dealer_look = move_toward(dealer_look,0,delta*.045)
+		dealer_head.rotation.y = lerp_angle(dealer_head.rotation.y,dealer_look,delta*4)
+		dealer_head.rotation.x = sin(elapsed*.8)*.008
+	_update_dealer_arm()
 	if error_label and elapsed > error_until: error_label.text = ""
 	if timer_label:
 		var deadline = table.get("turnDeadline")
