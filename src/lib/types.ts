@@ -92,10 +92,25 @@ export interface PlayerPublic {
   totalBlackjacks: number;
 }
 
+export interface RoomSummary {
+  id: string;
+  name: string;
+  description: string;
+  theme: string;
+  occupiedSeats: number;
+  capacity: number;
+  players: number;
+  phase: RoundPhase;
+  roundNumber: number;
+  minBet: number;
+  maxBet: number;
+}
+
 // ---------- Socket.io event contracts ----------
 
 export interface ClientToServerEvents {
-  identify: (payload: { pseudo?: string; deviceToken?: string }) => void;
+  identify: (payload: { pseudo?: string; deviceToken?: string; roomId?: string }) => void;
+  joinRoom: (payload: { roomId: string }) => void;
   sit: (payload: { seatNumber: number }) => void;
   leaveSeat: (payload: { seatNumber: number }) => void;
   placeBet: (payload: { seatNumber: number; amount: number }) => void;
@@ -108,6 +123,8 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
+  roomsState: (payload: { rooms: RoomSummary[] }) => void;
+  roomJoined: (payload: { roomId: string }) => void;
   identified: (payload: { player: PlayerPublic; deviceToken: string }) => void;
   playerUpdate: (payload: { player: PlayerPublic }) => void;
   tableState: (payload: { table: TableState }) => void;

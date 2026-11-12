@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { Cinzel, Jost } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const display = Cinzel({
+const display = localFont({
+  src: "./fonts/Cinzel.ttf",
   variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "900"],
+  weight: "400 900",
 });
 
-const body = Jost({
+const body = localFont({
+  src: "./fonts/Jost.ttf",
   variable: "--font-body",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  weight: "100 900",
 });
 
 export const metadata: Metadata = {

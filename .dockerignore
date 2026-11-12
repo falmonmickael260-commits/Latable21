@@ -1,0 +1,12 @@
+.git
+.next
+node_modules
+data
+.env*
+*.log
+*.tsbuildinfo
+godot/.godot
+public/game
+docs
+tests
+.github
