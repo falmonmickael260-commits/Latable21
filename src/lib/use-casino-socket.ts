@@ -5,6 +5,7 @@ import { io, type Socket } from "socket.io-client";
 import { getStoredDeviceToken, storeDeviceToken, storePseudo } from "./device-token";
 import type {
   Card,
+  RoomSummary,
   ClientToServerEvents,
   PlayerPublic,
   RoundResultEntry,
@@ -27,6 +28,9 @@ export function useCasinoSocket(pseudo: string | null) {
   const [connected, setConnected] = useState(false);
   const [player, setPlayer] = useState<PlayerPublic | null>(null);
   const [table, setTable] = useState<TableState | null>(null);
+  const [rooms, setRooms] = useState<RoomSummary[]>([]);
+  const [currentRoomId, setCurrentRoomId] = useState("table-1");
+  const [deviceRemembered, setDeviceRemembered] = useState(false);
   const [lastDeal, setLastDeal] = useState<DealEvent | null>(null);
   const [roundResults, setRoundResults] = useState<RoundResultEntry[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -38,14 +42,18 @@ export function useCasinoSocket(pseudo: string | null) {
 
     socket.on("connect", () => {
       setConnected(true);
-      socket.emit("identify", { pseudo, deviceToken: getStoredDeviceToken() ?? undefined });
+      let deviceToken: string | undefined;
+      try { deviceToken = getStoredDeviceToken() ?? undefined; } catch {}
+      socket.emit("identify", { pseudo, deviceToken });
     });
     socket.on("disconnect", () => setConnected(false));
     socket.on("identified", ({ player: p, deviceToken }) => {
-      storeDeviceToken(deviceToken);
-      storePseudo(p.pseudo);
+      try { storeDeviceToken(deviceToken); storePseudo(p.pseudo); setDeviceRemembered(true); }
+      catch { setDeviceRemembered(false); setErrorMessage("Le navigateur bloque la mémorisation du compte sur cet appareil."); }
       setPlayer(p);
     });
+    socket.on("roomsState", ({ rooms: r }) => setRooms(r));
+    socket.on("roomJoined", ({ roomId }) => { setCurrentRoomId(roomId); setRoundResults(null); setLastDeal(null); });
     socket.on("playerUpdate", ({ player: p }) => setPlayer(p));
     socket.on("tableState", ({ table: t }) => setTable(t));
     socket.on("dealAnimation", (payload) => {
@@ -60,6 +68,7 @@ export function useCasinoSocket(pseudo: string | null) {
     };
   }, [pseudo]);
 
+  const joinRoom = useCallback((roomId: string) => socketRef.current?.emit("joinRoom", { roomId }), []);
   const sit = useCallback((seatNumber: number) => socketRef.current?.emit("sit", { seatNumber }), []);
   const leaveSeat = useCallback((seatNumber: number) => socketRef.current?.emit("leaveSeat", { seatNumber }), []);
   const placeBet = useCallback(
@@ -78,6 +87,10 @@ export function useCasinoSocket(pseudo: string | null) {
 
   return {
     connected,
+    rooms,
+    currentRoomId,
+    deviceRemembered,
+    joinRoom,
     player,
     table,
     lastDeal,

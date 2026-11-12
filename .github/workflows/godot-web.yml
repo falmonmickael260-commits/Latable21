@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - uses: chickensoft-games/setup-godot@v2
         with:
@@ -36,3 +36,4 @@ jobs:
           godot --headless --path godot --script tests/scene_test.gd
           godot --headless --path godot --script tests/cards_test.gd
           godot --headless --path godot --script tests/chips_test.gd
+          godot --headless --path godot --script tests/interface_test.gd

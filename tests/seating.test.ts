@@ -25,10 +25,10 @@ test("a seated player can reserve and bet on several free cases", () => {
   game.sit(5, player.id, player.pseudo);
   game.placeBet(2, player.id, 100);
   game.placeBet(5, player.id, 200);
-  assert.equal(player.balance, 2700);
+  assert.equal(store.getById(player.id)!.balance, 2700);
   assert.deepEqual(game.getTable().seats.filter(s => s.playerId === player.id).map(s => s.seatNumber), [2, 5]);
   game.clearBet(2, player.id);
-  assert.equal(player.balance, 2800);
+  assert.equal(store.getById(player.id)!.balance, 2800);
   assert.equal(game.getTable().seats[4].hands[0].bet, 200);
 });
 
@@ -39,7 +39,7 @@ test("occupied cases and unseated bets are rejected", () => {
   assert.throws(() => game.sit(4, other.id, other.pseudo), /occupée/);
   assert.throws(() => game.placeBet(3, other.id, 100), /assignée/);
   assert.throws(() => game.placeBet(4, other.id, 100), /assignée/);
-  assert.equal(other.balance, 3000);
+  assert.equal(store.getById(other.id)!.balance, 3000);
 });
 
 test("repeated bets cannot debit the balance twice", () => {
@@ -47,7 +47,7 @@ test("repeated bets cannot debit the balance twice", () => {
   game.sit(4, player.id, player.pseudo);
   game.placeBet(4, player.id, 100);
   assert.throws(() => game.placeBet(4, player.id, 200), /Annulez/);
-  assert.equal(player.balance, 2900);
+  assert.equal(store.getById(player.id)!.balance, 2900);
   assert.equal(game.getTable().seats[3].hands[0].bet, 100);
 });
 
@@ -59,7 +59,7 @@ test("locked rounds reject leaving and cancelling bets", () => {
   assert.throws(() => game.leaveSeat(4, player.id), /fin de la manche/);
   assert.throws(() => game.clearBet(4, player.id), /fermées/);
   assert.throws(() => game.sit(5, player.id, player.pseudo), /en cours/);
-  assert.equal(player.balance, 2900);
+  assert.equal(store.getById(player.id)!.balance, 2900);
   assert.equal(game.getTable().seats[3].playerId, player.id);
 });
 
@@ -67,6 +67,6 @@ test("invalid bet amounts leave balance and hand untouched", () => {
   const { game, player } = setup();
   game.sit(1, player.id, player.pseudo);
   for (const amount of [NaN, Infinity, 100.5, 0, 501]) assert.throws(() => game.placeBet(1, player.id, amount));
-  assert.equal(player.balance, 3000);
+  assert.equal(store.getById(player.id)!.balance, 3000);
   assert.equal(game.getTable().seats[0].hands.length, 0);
 });

@@ -47,9 +47,9 @@ export class GameManager {
   private turnTimer: NodeJS.Timeout | null = null;
   private dealOrder = 0;
 
-  constructor(private cb: GameManagerCallbacks) {
+  constructor(private cb: GameManagerCallbacks, tableId = "table-1") {
     this.table = {
-      id: "table-1",
+      id: tableId,
       phase: "idle",
       seats: Array.from({ length: SEAT_COUNT }, (_, i) => emptySeat(i + 1)),
       dealer: { cards: [], holeCardRevealed: false, total: null },
@@ -83,11 +83,11 @@ export class GameManager {
   leaveSeat(seatNumber: number, playerId: string) {
     const seat = this.seat(seatNumber);
     if (seat.playerId !== playerId) throw new Error("Place non assignée à ce joueur.");
-    if (this.table.phase !== "idle" && this.table.phase !== "betting") {
+    if (this.table.phase !== "idle" && this.table.phase !== "betting" && seat.hands.length > 0) {
       throw new Error("Attendez la fin de la manche pour quitter cette place.");
     }
     if (seat.status === "betting" && seat.hands[0]?.bet) {
-      store.adjustBalance(playerId, seat.hands[0].bet);
+      store.refundBet(playerId, this.betKey(playerId, seatNumber, 0));
       this.cb.onPlayerChanged(playerId);
     }
     Object.assign(seat, emptySeat(seatNumber));
@@ -111,7 +111,7 @@ export class GameManager {
     const player = store.getById(playerId);
     if (!player || player.balance < amount) throw new Error("Solde insuffisant.");
 
-    store.adjustBalance(playerId, -amount);
+    store.reserveBet(playerId, this.betKey(playerId, seatNumber, 0), amount);
     this.cb.onPlayerChanged(playerId);
 
     seat.status = "betting";
@@ -143,7 +143,7 @@ export class GameManager {
     if (seat.status !== "betting") return;
     const refund = seat.hands[0]?.bet ?? 0;
     if (refund > 0) {
-      store.adjustBalance(playerId, refund);
+      store.refundBet(playerId, this.betKey(playerId, seatNumber, 0));
       this.cb.onPlayerChanged(playerId);
     }
     seat.status = "reserved";
@@ -263,6 +263,7 @@ export class GameManager {
       this.publish();
 
       const finish = () => {
+        if (this.pendingResolve?.finish === finish) this.pendingResolve = null;
         if (this.turnTimer) {
           clearTimeout(this.turnTimer);
           this.turnTimer = null;
@@ -273,25 +274,7 @@ export class GameManager {
       // Stored so socket-server's action() can resolve this exact turn.
       this.pendingResolve = { seat, handIndex, finish };
 
-      this.turnTimer = setTimeout(() => {
-        // Timeout fallback: hit while 16 or below, otherwise stand — mirrors
-        // the manual decision a player would make, so an idle hand doesn't
-        // arbitrarily bust or walk away from a strong total.
-        const { total } = handValue(hand.cards);
-        if (total <= 16) {
-          this.drawCard(seat, handIndex);
-          if (hand.status === "active" && !isBust(hand.cards)) {
-            // Keep offering timed decisions until they stand, bust, or hit 17+.
-            this.table.turnDeadline = Date.now() + TURN_TIMEOUT_MS;
-            this.publish();
-            this.turnTimer = setTimeout(() => this.pendingResolve?.finish(), 0);
-            return;
-          }
-        } else {
-          hand.status = "stood";
-        }
-        finish();
-      }, TURN_TIMEOUT_MS);
+      this.turnTimer = setTimeout(() => this.expireTurn(), TURN_TIMEOUT_MS);
     });
   }
 
@@ -307,6 +290,7 @@ export class GameManager {
     const seat = this.seat(seatNumber);
     if (seat.playerId !== playerId) throw new Error("Place non assignée à ce joueur.");
     if (
+      this.table.phase !== "player_turns" || this.table.activeSeat !== seatNumber || this.table.activeHandIndex !== handIndex ||
       !this.pendingResolve ||
       this.pendingResolve.seat.seatNumber !== seatNumber ||
       this.pendingResolve.handIndex !== handIndex
@@ -314,6 +298,7 @@ export class GameManager {
       throw new Error("Ce n'est pas votre tour.");
     }
     const hand = seat.hands[handIndex];
+    if (hand.status !== "active") throw new Error("Cette main est déjà terminée.");
 
     if (type === "hit") {
       this.drawCard(seat, handIndex);
@@ -332,7 +317,7 @@ export class GameManager {
       if (hand.cards.length !== 2 || hand.doubled) throw new Error("Double impossible.");
       const player = store.getById(playerId);
       if (!player || player.balance < hand.bet) throw new Error("Solde insuffisant pour doubler.");
-      store.adjustBalance(playerId, -hand.bet);
+      store.reserveBet(playerId, this.betKey(playerId, seatNumber, handIndex), hand.bet);
       this.cb.onPlayerChanged(playerId);
       hand.bet *= 2;
       hand.doubled = true;
@@ -350,7 +335,7 @@ export class GameManager {
       if (a.rank !== b.rank) throw new Error("Split impossible : cartes différentes.");
       const player = store.getById(playerId);
       if (!player || player.balance < hand.bet) throw new Error("Solde insuffisant pour diviser.");
-      store.adjustBalance(playerId, -hand.bet);
+      store.reserveBet(playerId, this.betKey(playerId, seatNumber, 1), hand.bet);
       this.cb.onPlayerChanged(playerId);
 
       const isAceSplit = a.rank === "A";
@@ -378,11 +363,22 @@ export class GameManager {
         hand.status = "stood";
         second.status = "stood";
         this.resolveTurn();
+      } else if (hand.status !== "active") {
+        this.resolveTurn();
       } else {
         this.resetTurnDeadline();
       }
       return;
     }
+  }
+
+  private expireTurn() {
+    const pending = this.pendingResolve;
+    if (!pending) return;
+    // A disconnected player keeps their cards; never draw on their behalf.
+    const hand = pending.seat.hands[pending.handIndex];
+    if (hand.status === "active") hand.status = "stood";
+    this.resolveTurn();
   }
 
   private drawCard(seat: SeatState, handIndex: number) {
@@ -399,7 +395,7 @@ export class GameManager {
   private resetTurnDeadline() {
     this.table.turnDeadline = Date.now() + TURN_TIMEOUT_MS;
     if (this.turnTimer) clearTimeout(this.turnTimer);
-    this.turnTimer = setTimeout(() => this.pendingResolve?.finish(), TURN_TIMEOUT_MS);
+    this.turnTimer = setTimeout(() => this.expireTurn(), TURN_TIMEOUT_MS);
     this.publish();
   }
 
@@ -476,8 +472,8 @@ export class GameManager {
         hand.status = "done";
         hand.payout = payoutFor(result, hand.bet);
 
-        if (hand.payout > 0 && seat.playerId) {
-          store.adjustBalance(seat.playerId, hand.payout);
+        if (seat.playerId) {
+          store.settleBet(seat.playerId, this.betKey(seat.playerId, seat.seatNumber, h), hand.payout);
         }
         if (seat.playerId) {
           const outcome =
@@ -520,6 +516,10 @@ export class GameManager {
   }
 
   // ---------- helpers ----------
+
+  private betKey(playerId: string, seatNumber: number, handIndex: number) {
+    return `${playerId}:${this.table.id}:${seatNumber}:${handIndex}`;
+  }
 
   private seat(seatNumber: number): SeatState {
     const seat = this.table.seats.find((s) => s.seatNumber === seatNumber);

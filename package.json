@@ -9,7 +9,7 @@
     "lint": "eslint",
     "game:export": "node scripts/export-godot.mjs",
     "game:dev": "godot --path godot --editor",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "TABLE21_DATABASE_PATH=:memory: node --import tsx --test tests/*.test.ts",
     "test:godot": "godot --headless --path godot --script tests/network_test.gd"
   },
   "dependencies": {

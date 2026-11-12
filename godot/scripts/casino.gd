@@ -53,9 +53,13 @@ var muted := false
 var reduced_motion := false
 var demo_mode := false
 var compact := false
+var embedded_mode := false
 var status_row: HBoxContainer
+var chip_button_textures: Dictionary = {}
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		embedded_mode = bool(JavaScriptBridge.eval("new URLSearchParams(location.search).get('embedded') === '1'"))
 	get_viewport().msaa_3d = Viewport.MSAA_8X
 	for argument in OS.get_cmdline_user_args():
 		if argument == "--demo": demo_mode = true
@@ -83,6 +87,8 @@ func _ready() -> void:
 			if argument.begins_with("--pseudo="):
 				pseudo_input.text = argument.trim_prefix("--pseudo=")
 				_join()
+	if embedded_mode and not demo_mode and net.stopped and not net.device_token.is_empty():
+		_join()
 	get_viewport().size_changed.connect(_adapt_view)
 	_adapt_view()
 
@@ -447,7 +453,7 @@ func _style_panel(color := Color("101d18"), border := Color("665d41")) -> StyleB
 	style.bg_color = color
 	style.border_color = border
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(12)
+	style.set_corner_radius_all(8)
 	style.content_margin_left = 18
 	style.content_margin_right = 18
 	style.content_margin_top = 12
@@ -465,6 +471,70 @@ func _button(text_value: String, callback: Callable, min_width := 90) -> Button:
 	button.add_theme_color_override("font_color", CREAM)
 	button.add_theme_color_override("font_disabled_color", Color("62695b"))
 	button.pressed.connect(callback)
+	return button
+
+func _chip_button_texture(amount: int) -> Texture2D:
+	if chip_button_textures.has(amount): return chip_button_textures[amount]
+	var color := "#" + _chip_color(amount).to_html(false)
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><circle cx="64" cy="64" r="59" fill="%s" stroke="#e2d8bf" stroke-width="2"/>' % color
+	for index in range(8):
+		var a := TAU * index / 8.0 - .12
+		var b := TAU * index / 8.0 + .12
+		var points: Array[Vector2] = [Vector2(cos(a),sin(a))*47, Vector2(cos(a),sin(a))*59, Vector2(cos(b),sin(b))*59, Vector2(cos(b),sin(b))*47]
+		svg += '<polygon points="'
+		for point in points: svg += '%s,%s ' % [64+point.x,64+point.y]
+		svg += '" fill="#e2d8bf"/>'
+	svg += '<circle cx="64" cy="64" r="42" fill="none" stroke="#e2d8bf" stroke-width="1"/><circle cx="64" cy="64" r="36" fill="#f0ead8"/></svg>'
+	var image := Image.new()
+	image.load_svg_from_string(svg)
+	var texture := ImageTexture.create_from_image(image)
+	chip_button_textures[amount] = texture
+	return texture
+
+func _bet_chip_button(amount: int, callback: Callable) -> Button:
+	var chip_size := 60 if compact else 52
+	var button := _button(str(amount), callback, chip_size)
+	button.custom_minimum_size = Vector2(chip_size, chip_size)
+	button.tooltip_text = "Miser %s jetons" % amount
+	button.add_theme_font_size_override("font_size", 16 if compact else 14)
+	button.add_theme_color_override("font_color", Color("16251c"))
+	button.add_theme_color_override("font_hover_color", Color("16251c"))
+	button.add_theme_color_override("font_pressed_color", Color("16251c"))
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var style := StyleBoxTexture.new()
+		style.texture = _chip_button_texture(amount)
+		style.content_margin_left = 0
+		style.content_margin_right = 0
+		style.content_margin_top = 0
+		style.content_margin_bottom = 0
+		if state == "hover": style.modulate_color = Color(1.1,1.1,1.1)
+		if state == "pressed": style.modulate_color = Color(.85,.85,.85)
+		if state == "disabled": style.modulate_color = Color(.4,.45,.4,.5)
+		button.add_theme_stylebox_override(state, style)
+	return button
+
+func _game_action_button(caption: String, action_value: String) -> Button:
+	var symbols := {"hit": "+", "stand": "—", "double": "×2", "split": "◇"}
+	var button := _button(caption + "  " + str(symbols[action_value]), _action.bind(action_value), 100 if compact else 122)
+	button.custom_minimum_size.y = 62 if compact else 54
+	button.add_theme_font_size_override("font_size", 16 if compact else 14)
+	button.tooltip_text = {"hit":"Recevoir une carte", "stand":"Conserver cette main", "double":"Doubler la mise et recevoir une carte", "split":"Séparer deux cartes de même rang"}[action_value]
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var background := Color("14231c")
+		var border := Color("7a704e")
+		if action_value == "hit": background = Color("234f3d"); border = Color("79947a")
+		if action_value == "stand": background = Color("bea36c"); border = Color("d8c28f")
+		if state == "hover": background = background.lightened(.09)
+		if state == "pressed": background = background.darkened(.12)
+		if state == "disabled": background = Color("101b15"); border = Color("344333")
+		var style := _style_panel(background, border)
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		style.content_margin_top = 12
+		style.content_margin_bottom = 12
+		button.add_theme_stylebox_override(state, style)
+	button.add_theme_color_override("font_color", Color("16231a") if action_value == "stand" else Color("e8dfc6"))
+	button.add_theme_color_override("font_disabled_color", Color("596c58"))
 	return button
 
 func _ui_label(text_value: String, font_size := 16, color := CREAM) -> Label:
@@ -492,6 +562,7 @@ func _build_ui() -> void:
 	top.add_theme_constant_override("margin_right", 24)
 	top.add_theme_constant_override("margin_top", 18)
 	ui.add_child(top)
+	top.visible = not embedded_mode
 	var top_row := HBoxContainer.new()
 	status_row = top_row
 	top.add_child(top_row)
@@ -510,11 +581,12 @@ func _build_ui() -> void:
 	top_row.add_child(motion_button)
 	var title := VBoxContainer.new()
 	title.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	title.position = Vector2(-200, 70)
+	title.position = Vector2(-200, 14 if embedded_mode else 70)
 	title.size = Vector2(400, 90)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(title)
 	title.add_child(_ui_label("LA TABLE 21", 28, GOLD))
+	title.get_child(0).visible = not embedded_mode
 	phase_label = _ui_label("Prenez place au salon", 14)
 	title.add_child(phase_label)
 	timer_label = _ui_label("", 13, GOLD)
@@ -543,7 +615,23 @@ func _build_ui() -> void:
 	actions_row = HBoxContainer.new()
 	actions_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_child(actions_row)
-	column.add_child(_ui_label("JETONS VIRTUELS  ·  7 PLACES  ·  PLUSIEURS CASES POSSIBLES", 10, Color("9b9e87")))
+	var footer_row := HBoxContainer.new()
+	column.add_child(footer_row)
+	var footer_text := _ui_label("JETONS VIRTUELS  ·  BLACKJACK 3:2", 9, Color("8c9a82"))
+	footer_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer_row.add_child(footer_text)
+	if embedded_mode:
+		for settings_button in [mute_button, motion_button]:
+			top_row.remove_child(settings_button)
+			footer_row.add_child(settings_button)
+			settings_button.custom_minimum_size = Vector2(55, 25)
+			settings_button.add_theme_font_size_override("font_size", 9)
+			var quiet := _style_panel(Color(0,0,0,0), Color("62735d55"))
+			quiet.content_margin_left = 8
+			quiet.content_margin_right = 8
+			quiet.content_margin_top = 4
+			quiet.content_margin_bottom = 4
+			settings_button.add_theme_stylebox_override("normal", quiet)
 	error_label = _ui_label("", 15, Color("f0b09c"))
 	error_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	error_label.position -= Vector2(300, 60)
@@ -652,7 +740,7 @@ func _adapt_view() -> void:
 	var size_value := get_window().size
 	var new_compact := size_value.x < size_value.y
 	compact = new_compact
-	get_window().content_scale_size = Vector2i(540, 960) if compact else Vector2i(1440, 900)
+	get_window().content_scale_size = Vector2i(540, 960) if compact else Vector2i(1100, 760) if embedded_mode else Vector2i(1440, 900)
 	if status_row:
 		status_row.get_child(0).visible = not compact
 		for button in status_row.get_children():
@@ -704,7 +792,7 @@ func _refresh_ui() -> void:
 			bet_row.add_child(clear)
 		else:
 			for amount in [100, 200, 300, 400, 500]:
-				var bet_button := _button(str(amount), _bet.bind(selected_bet_case, amount), 50 if compact else 65)
+				var bet_button := _bet_chip_button(amount, _bet.bind(selected_bet_case, amount))
 				bet_button.disabled = not connected or int(player.get("balance", 0)) < amount
 				bet_row.add_child(bet_button)
 		var leave := _button("QUITTER" if compact else "QUITTER LA CASE", func(): net.send_event("leaveSeat", {"seatNumber": selected_bet_case}), 85 if compact else 145)
@@ -716,8 +804,8 @@ func _refresh_ui() -> void:
 		if not active.is_empty():
 			guidance.text = "À VOUS DE JOUER · CASE %s" % active_case
 			var hand: Dictionary = active[0].hands[int(table.get("activeHandIndex", 0))]
-			for entry in [["TIRER", "hit"], ["RESTER", "stand"], ["DOUBLER", "double"], ["SÉPARER", "split"]]:
-				var button := _button(entry[0], _action.bind(entry[1]), 100 if compact else 120)
+			for entry in [["TIRER", "hit"], ["RESTER", "stand"], ["DOUBLE", "double"], ["SPLIT", "split"]]:
+				var button := _game_action_button(entry[0], entry[1])
 				button.disabled = not connected
 				if entry[1] == "double": button.disabled = button.disabled or hand.cards.size() != 2 or hand.doubled or int(player.get("balance", 0)) < int(hand.bet)
 				if entry[1] == "split": button.disabled = button.disabled or hand.cards.size() != 2 or hand.isSplit or int(player.get("balance", 0)) < int(hand.bet)
@@ -770,6 +858,7 @@ func _sync_scene() -> void:
 		# Seat numbers are ink on the felt; ownership stays in the controls.
 		label.text = str(number)
 		label.modulate = Color("ded0aa")
+		seat_rings[number].visible = empty
 		seat_rings[number].material_override = _felt_ink(Color("c9b98f") if own else Color("a5a180") if empty else Color("797b6b"))
 
 	var dealer: Dictionary = table.get("dealer", {})
