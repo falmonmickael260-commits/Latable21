@@ -64,6 +64,8 @@ var muted := false
 var reduced_motion := false
 var demo_mode := false
 var compact := false
+var mobile_camera_seat := 0
+var mobile_camera_hand := 0
 var embedded_mode := false
 var status_row: HBoxContainer
 var chip_button_textures: Dictionary = {}
@@ -841,6 +843,7 @@ func _build_ui() -> void:
 	column.add_theme_constant_override("separation", 8)
 	controls_panel.add_child(column)
 	guidance = _ui_label("Choisissez une place libre pour vous asseoir", 14, CREAM)
+	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(guidance)
 	seat_bar = HBoxContainer.new()
 	seat_bar.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -865,6 +868,7 @@ func _build_ui() -> void:
 		footer_row.move_child(phase_label,0)
 		phase_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		phase_label.clip_text = true
 		phase_label.add_theme_font_size_override("font_size",11)
 		footer_row.add_child(timer_label)
 		title.hide()
@@ -951,6 +955,7 @@ func _on_table(value: Dictionary) -> void:
 	elif seated:
 		seated = false
 		_move_camera()
+	if compact and (mobile_camera_seat != _mobile_focus_number() or mobile_camera_hand != _mobile_focus_hand_index(_mobile_focus_number())): _move_camera()
 	_sync_scene()
 	_refresh_ui()
 	has_initial_state = true
@@ -969,21 +974,44 @@ func _select_seat(number: int) -> void:
 		selected_bet_case = number
 		net.send_event("sit", {"seatNumber": number})
 
+func _mobile_focus_number() -> int:
+	var mine := _my_seats()
+	var active := int(table.get("activeSeat",0)) if table.get("activeSeat") != null else 0
+	if active > 0 and mine.any(func(seat): return int(seat.seatNumber) == active): return active
+	if selected_bet_case > 0 and mine.any(func(seat): return int(seat.seatNumber) == selected_bet_case): return selected_bet_case
+	return selected_seat
+
+func _mobile_focus_hand_index(number: int) -> int:
+	if table.get("activeSeat") != null and int(table.activeSeat) == number: return int(table.get("activeHandIndex",0))
+	return 0
+
 func _move_camera() -> void:
 	if camera_tween: camera_tween.kill()
-	var angle := _seat_angle(selected_seat) * .7
-	var width := get_viewport().get_visible_rect().size.x
-	var height := get_viewport().get_visible_rect().size.y
-	var portrait := width < height
-	var distance := 7.7 if portrait else 4.2 if seated else 5.55
-	var destination := Vector3(sin(angle) * distance, 3.05 if portrait else 2.70 if seated else 3.25, cos(angle) * distance)
-	var target := Vector3(0, 1.28, -.25)
+	var angle := _seat_angle(selected_seat)*.7
+	var distance := 4.2 if seated else 5.55
+	var destination := Vector3(sin(angle)*distance,2.70 if seated else 3.25,cos(angle)*distance)
+	var target := Vector3(0,1.28,-.25)
+	camera.fov = 68
+	if compact:
+		# Portrait frames the player's hand and the dealer, not the entire room.
+		# The seven seats remain accessible in the seat controls below the table.
+		mobile_camera_seat = _mobile_focus_number()
+		mobile_camera_hand = _mobile_focus_hand_index(mobile_camera_seat)
+		var hand := _seat_position(mobile_camera_seat)+Vector3(0,0,-.32)
+		for seat in table.get("seats",[]):
+			if int(seat.seatNumber) == mobile_camera_seat and seat.get("hands",[]).size() > 1:
+				hand.x += (mobile_camera_hand-(seat.hands.size()-1)/2.0)*.85
+		target = Vector3(lerpf(-.12,hand.x,.78),1.12,lerpf(-.8,hand.z,.5)+.50)
+		angle = _seat_angle(mobile_camera_seat)*.55
+		destination = Vector3(target.x+sin(angle)*2.15,4.25,target.z+cos(angle)*2.15)
+		camera.fov = 46
+	else: mobile_camera_seat = 0
 	for number in seat_chairs:
 		for mesh in seat_chairs[number]:
-			mesh.visible = not (seated and number == selected_seat)
-	var target_transform := Transform3D(Basis(), destination).looking_at(target)
+			mesh.visible = not compact and not (seated and number == selected_seat)
+	var target_transform := Transform3D(Basis(),destination).looking_at(target)
 	camera_tween = create_tween()
-	camera_tween.tween_property(camera, "transform", target_transform, .01 if reduced_motion else .85).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	camera_tween.tween_property(camera,"transform",target_transform,.01 if reduced_motion else .65).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 
 func _adapt_view() -> void:
 	var size_value := get_window().size
@@ -1014,7 +1042,7 @@ func _refresh_ui() -> void:
 	var open := phase == "idle" or phase == "betting"
 	phase_label.text = str(PHASES.get(phase, "Bienvenue")) + (" · Manche %s" % int(table.get("roundNumber", 0)))
 	var mine := _my_seats()
-	guidance.text = "Choisissez une place libre pour vous asseoir" if mine.is_empty() else "Votre place : %s · Ajoutez une case libre si vous le souhaitez" % selected_seat
+	guidance.text = "Choisissez une place libre pour vous asseoir" if mine.is_empty() else ("Votre case : %s · Plusieurs cases possibles" if compact else "Votre place : %s · Ajoutez une case libre si vous le souhaitez") % selected_seat
 	if not connected and not demo_mode: guidance.text = "Connexion au serveur… Les actions sont suspendues"
 	for seat in table.get("seats", []):
 		var number := int(seat.seatNumber)

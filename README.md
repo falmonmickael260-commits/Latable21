@@ -48,6 +48,12 @@ La direction visuelle actuelle est **stylisée et procédurale** : le croupier a
 
 Captures réelles du navigateur : accueil et tables réseau.
 
+## Cadrage téléphone
+
+En portrait, la caméra cadre de près la case jouée et la main du croupier, avec une vue plongeante d’environ 55°. Elle suit la case active du joueur et chaque main après un split ; les sept places restent accessibles dans les commandes. Le décor et les fauteuils ne prennent plus toute la place dans cette vue. Le cadrage ordinateur est conservé.
+
+![Cartes sur téléphone](docs/visuels/telephone-cartes-lisibles.png)
+
 ## Salon, cartes et identité de casino
 
 ![Salon et cartes retravaillés](docs/visuels/salon-complet-hd.png)
