@@ -50,7 +50,7 @@ Captures réelles du navigateur : accueil et tables réseau.
 
 ## Cadrage téléphone
 
-En portrait, une vue inclinée rapprochée conserve le croupier et le décor dans le cadre. Les cartes et les totaux sont agrandis sur téléphone, et les commandes occupent un espace séparé sous la scène 3D. Elle suit la case active du joueur et chaque main après un split ; les sept places restent accessibles dans les commandes. Le cadrage équilibre les mains et l’ambiance de la pièce. Le cadrage ordinateur est conservé.
+En portrait, une vue inclinée rapprochée conserve le croupier et le décor dans le cadre. La taille des cartes et des totaux est adaptée au téléphone, et les commandes occupent un espace séparé sous la scène 3D. Elle suit la case active du joueur et chaque main après un split ; les sept places restent accessibles dans les commandes. Le cadrage équilibre les mains et l’ambiance de la pièce. Le cadrage ordinateur est conservé.
 
 ![Cartes sur téléphone](docs/visuels/telephone-cartes-lisibles.png)
 
@@ -132,3 +132,5 @@ Pour une installation locale, le fichier est créé dans `data/table21.sqlite` (
 ## Sources des nouveaux éléments visuels et sonores
 
 Le visage est dérivé du maillage MakeHuman hm08 distribué en CC0 : provenance et licence dans `godot/assets/dealer/`. `scripts/build-dealer-head.py` permet de reconstruire le GLB dans Blender à partir du fichier source ; le jeu utilise le GLB déjà construit. Les illustrations des deux tableaux ont été générées pour ce projet et sont intégrées dans `godot/assets/art/casino-diptych.png`. L’emblème, les inscriptions et les cartes sont dessinés par `brand_art.gd` et `card_art.gd`, avec les polices libres déjà embarquées et leurs licences. Les sons originaux, non verbaux et synthétisés, sont reproductibles avec `python3 scripts/build-casino-audio.py`. Aucun service de génération n’est appelé pendant le jeu.
+
+Les polices de la plateforme (Cinzel et Jost) sont embarquées dans `src/app/fonts` avec leurs licences SIL OFL. La construction ne dépend plus des réponses de Google Fonts.

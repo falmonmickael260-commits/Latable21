@@ -1167,7 +1167,7 @@ func _sync_scene() -> void:
 		for hand_index in hands.size():
 			var hand: Dictionary = hands[hand_index]
 			var pos := _seat_position(number) + Vector3((hand_index - (hands.size() - 1) / 2.0) * .85, .025, -.32)
-			_sync_hand(hand.get("cards", []), pos, live_cards, false,1.60 if compact else 1.0)
+			_sync_hand(hand.get("cards", []), pos, live_cards, false,1.20 if compact else 1.0)
 			if not hand.get("cards", []).is_empty():
 				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), Vector3(pos.x, FELT_SURFACE_Y + (.38 if compact else .25), pos.z - .25), live_totals)
 			var chip_id := "%s-%s" % [number, hand_index]
@@ -1184,7 +1184,7 @@ func _sync_scene() -> void:
 		seat_rings[number].material_override = _felt_ink(Color("c9b98f") if own else Color("a5a180") if empty else Color("797b6b"))
 
 	var dealer: Dictionary = table.get("dealer", {})
-	_sync_hand(dealer.get("cards", []), Vector3(-.12, 1.14, -.8), live_cards, not dealer.get("holeCardRevealed", false),1.85 if compact else 1.0)
+	_sync_hand(dealer.get("cards", []), Vector3(-.12, 1.14, -.8), live_cards, not dealer.get("holeCardRevealed", false),1.40 if compact else 1.0)
 	var visible_dealer: Array = []
 	for index in dealer.get("cards", []).size():
 		if index != 1 or dealer.get("holeCardRevealed", false):

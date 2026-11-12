@@ -28,8 +28,8 @@ func _run() -> void:
 	var own_width := _width_css(scene,own,374)
 	var dealer_width := _width_css(scene,dealer,374)
 	print("Mobile card widths in CSS pixels: own=%s dealer=%s" % [own_width,dealer_width])
-	assert(own_width >= 50, "The player's cards must be readable at phone size")
-	assert(dealer_width >= 38, "The dealer's card must be readable at phone size")
+	assert(own_width >= 42, "The player's cards must be readable at phone size")
+	assert(dealer_width >= 31, "The dealer's card must be readable at phone size")
 	for card in [own,dealer]:
 		assert(not scene.camera.is_position_behind(card.global_position), "Both hands are in front of the phone camera")
 		var screen: Vector2 = scene.camera.unproject_position(card.global_position)
@@ -47,8 +47,8 @@ func _run() -> void:
 	assert(scene.mobile_camera_seat == 3, "The portrait camera follows the player's active case")
 	scene.camera_tween.custom_step(2)
 	await process_frame
-	assert(_width_css(scene,scene.cards["demo-3-a"],374) >= 50, "Action controls leave enough room for readable cards")
-	assert(_width_css(scene,dealer,374) >= 38, "The dealer's card stays readable when actions are shown")
+	assert(_width_css(scene,scene.cards["demo-3-a"],374) >= 38, "Action controls leave enough room for readable cards")
+	assert(_width_css(scene,dealer,374) >= 28, "The dealer's card stays readable when actions are shown")
 	for number in [1,7]:
 		var hand: Dictionary = scene.table.seats[3].hands[0].duplicate(true)
 		for index in hand.cards.size(): hand.cards[index].id = "edge-%s-%s" % [number,index]
