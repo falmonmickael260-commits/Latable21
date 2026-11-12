@@ -50,7 +50,7 @@ Captures réelles du navigateur : accueil et tables réseau.
 
 ## Cadrage téléphone
 
-En portrait, une vue inclinée rapprochée conserve le croupier et le décor dans le cadre. La taille des cartes et des totaux est adaptée au téléphone, et les commandes occupent un espace séparé sous la scène 3D. Elle suit la case active du joueur et chaque main après un split ; les sept places restent accessibles dans les commandes. Le cadrage équilibre les mains et l’ambiance de la pièce. Le cadrage ordinateur est conservé.
+En portrait, la caméra conserve une vue inclinée sur le croupier et le décor, et ajuste sa distance à l’écran pour montrer toute la table avec une marge autour du cuir. Le cadre reste centré pendant les changements de case et les splits. Les cartes gardent des proportions plus discrètes et les totaux restent au-dessus des mains. Les commandes occupent un espace séparé sous la scène 3D ; les sept places restent accessibles. Le cadrage ordinateur est conservé.
 
 ![Cartes sur téléphone](docs/visuels/telephone-cartes-lisibles.png)
 

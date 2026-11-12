@@ -1016,18 +1016,24 @@ func _move_camera() -> void:
 	var target := Vector3(0,1.28,-.25)
 	camera.fov = 68
 	if compact:
-		# A close three-quarter view keeps the dealer and room in frame.
-		# Its own viewport leaves the controls outside the rendered playing area.
+		# Keep the same seated pitch, but fit the complete rail on portrait screens.
+		# A stable central view also keeps other occupied cases visible during turns.
 		mobile_camera_seat = _mobile_focus_number()
 		mobile_camera_hand = _mobile_focus_hand_index(mobile_camera_seat)
-		var hand := _seat_position(mobile_camera_seat)+Vector3(0,0,-.32)
-		for seat in table.get("seats",[]):
-			if int(seat.seatNumber) == mobile_camera_seat and seat.get("hands",[]).size() > 1:
-				hand.x += (mobile_camera_hand-(seat.hands.size()-1)/2.0)*.85
-		target = Vector3(lerpf(-.12,hand.x,.65),1.70,lerpf(-.8,hand.z,.5)+.10)
-		angle = _seat_angle(mobile_camera_seat)*.55
-		destination = Vector3(target.x+sin(angle)*3.75,3.05,target.z+cos(angle)*3.75)
-		camera.fov = 68
+		target = Vector3(0,1.70,.15)
+		var view_direction := Vector3(0,1.35,3.75).normalized()
+		var view_basis := Basis.looking_at(-view_direction)
+		var viewport_size := Vector2(mobile_viewport.size)
+		var half_height := tan(deg_to_rad(camera.fov*.5))*.92
+		var half_width := half_height*viewport_size.x/maxf(1,viewport_size.y)
+		var fitted_distance := 3.75
+		for step in range(64):
+			var rail_angle := TAU*step/64.0
+			var rail_point := Vector3(sin(rail_angle)*2.82,1.09,cos(rail_angle)*1.88)
+			var local := view_basis.inverse()*(rail_point-target)
+			fitted_distance = maxf(fitted_distance,local.z+absf(local.x)/half_width)
+			fitted_distance = maxf(fitted_distance,local.z+absf(local.y)/half_height)
+		destination = target+view_direction*fitted_distance
 	else: mobile_camera_seat = 0
 	for number in seat_chairs:
 		for mesh in seat_chairs[number]:
@@ -1045,7 +1051,10 @@ func _update_mobile_view_rect() -> void:
 	mobile_view.size = Vector2(ui_root.size.x,maxf(200,bottom-top))
 	# Render at the actual phone pixel density, avoiding a blurred enlarged viewport texture.
 	var raster_scale := clampf(float(get_window().size.x)/maxf(1,ui_root.size.x),.75,2.5)
-	mobile_viewport.size = Vector2i(mobile_view.size*raster_scale)
+	var render_size := Vector2i(mobile_view.size*raster_scale)
+	if mobile_viewport.size != render_size:
+		mobile_viewport.size = render_size
+		if compact and camera: _move_camera()
 
 func _adapt_view() -> void:
 	var size_value := get_window().size
@@ -1184,7 +1193,7 @@ func _sync_scene() -> void:
 		seat_rings[number].material_override = _felt_ink(Color("c9b98f") if own else Color("a5a180") if empty else Color("797b6b"))
 
 	var dealer: Dictionary = table.get("dealer", {})
-	_sync_hand(dealer.get("cards", []), Vector3(-.12, 1.14, -.8), live_cards, not dealer.get("holeCardRevealed", false),1.40 if compact else 1.0)
+	_sync_hand(dealer.get("cards", []), Vector3(-.12, 1.14, -.8), live_cards, not dealer.get("holeCardRevealed", false),1.35 if compact else 1.0)
 	var visible_dealer: Array = []
 	for index in dealer.get("cards", []).size():
 		if index != 1 or dealer.get("holeCardRevealed", false):

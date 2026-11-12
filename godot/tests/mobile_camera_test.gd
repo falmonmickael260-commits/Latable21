@@ -28,8 +28,8 @@ func _run() -> void:
 	var own_width := _width_css(scene,own,374)
 	var dealer_width := _width_css(scene,dealer,374)
 	print("Mobile card widths in CSS pixels: own=%s dealer=%s" % [own_width,dealer_width])
-	assert(own_width >= 42, "The player's cards must be readable at phone size")
-	assert(dealer_width >= 31, "The dealer's card must be readable at phone size")
+	assert(own_width >= 24 and own_width <= 32, "The player's cards must be readable at phone size")
+	assert(dealer_width >= 20 and dealer_width <= 28, "The dealer's card must be readable at phone size")
 	for card in [own,dealer]:
 		assert(not scene.camera.is_position_behind(card.global_position), "Both hands are in front of the phone camera")
 		var screen: Vector2 = scene.camera.unproject_position(card.global_position)
@@ -39,6 +39,12 @@ func _run() -> void:
 	for point in [scene.dealer_head.global_position,Vector3(0,3.30,-5.71)]:
 		var screen: Vector2 = scene.camera.unproject_position(point)
 		assert(screen.x > 0 and screen.x < play_size.x and screen.y > 0 and screen.y < play_size.y, "The dealer's head and casino wordmark remain in the mobile view")
+	for step in range(64):
+		var angle := TAU*step/64.0
+		var edge: Vector2 = scene.camera.unproject_position(Vector3(sin(angle)*2.82,1.09,cos(angle)*1.88))
+		assert(edge.x >= play_size.x*.035 and edge.x <= play_size.x*.965 and edge.y > 0 and edge.y < play_size.y, "The entire table rail fits with a visible margin")
+
+
 	assert(scene.mobile_view.get_global_rect().end.y < scene.controls_panel.get_global_rect().position.y, "The mobile controls do not cover the rendered table")
 	# A multi-case player's active turn controls the close camera.
 	scene.table.phase = "player_turns"
@@ -47,8 +53,9 @@ func _run() -> void:
 	assert(scene.mobile_camera_seat == 3, "The portrait camera follows the player's active case")
 	scene.camera_tween.custom_step(2)
 	await process_frame
-	assert(_width_css(scene,scene.cards["demo-3-a"],374) >= 38, "Action controls leave enough room for readable cards")
-	assert(_width_css(scene,dealer,374) >= 28, "The dealer's card stays readable when actions are shown")
+	assert(_width_css(scene,scene.cards["demo-3-a"],374) >= 22, "Action controls leave enough room for readable cards")
+	assert(_width_css(scene,dealer,374) >= 19, "The dealer's card stays readable when actions are shown")
+	var initial_camera: Transform3D = scene.camera.transform
 	for number in [1,7]:
 		var hand: Dictionary = scene.table.seats[3].hands[0].duplicate(true)
 		for index in hand.cards.size(): hand.cards[index].id = "edge-%s-%s" % [number,index]
@@ -58,7 +65,8 @@ func _run() -> void:
 		scene._on_table(scene.table)
 		scene.camera_tween.custom_step(2)
 		await process_frame
-		assert(scene.mobile_camera_seat == number, "Side cases can be focused on a phone")
+		assert(scene.mobile_camera_seat == number, "Side cases stay playable on a phone")
+		assert(scene.camera.transform.is_equal_approx(initial_camera), "Changing cases keeps the same full-table framing")
 		for card in [scene.cards["edge-%s-0" % number],dealer]:
 			var screen: Vector2 = scene.camera.unproject_position(card.global_position)
 			var size: Vector2 = scene.camera.get_viewport().get_visible_rect().size
@@ -91,5 +99,5 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	await create_timer(.1).timeout
-	print("GODOT MOBILE CAMERA: readable projected cards, visible dealer hand and active-case focus passed")
+	print("GODOT MOBILE CAMERA: proportional cards, complete table rail, visible dealer and stable framing passed")
 	quit(0)
