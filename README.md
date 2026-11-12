@@ -24,7 +24,7 @@ godot --path godot -- --server=ws://127.0.0.1:3000 --pseudo=Mickael
 
 ## Expérience de jeu
 
-- Une salle et une table **en vraie 3D**, avec plateau compact et bordure fine. Le tapis porte des marquages plats : cases numérotées dont le cercle disparaît dès qu’une place est occupée, mentions du blackjack en arc, règle du croupier à 17 et mises 100–500, dans une typographie serif.
+- Une salle et une table **en vraie 3D**, avec plateau compact, tapis vert à microtexture, habillage en noyer et accoudoir en cuir à double couture. Un filet de laiton, un double piètement et un repose-pieds relié à ses supports complètent le mobilier. Le sabot incliné et le plateau de jetons sont modélisés séparément. Le tapis porte des marquages plats : cases numérotées dont le cercle disparaît dès qu’une place est occupée, mentions du blackjack en arc, règle du croupier à 17 et mises 100–500, dans une typographie serif.
 - Caméra basse face à la table, déplacement animé vers une place confirmée par le serveur. Cliquer sur un cercle du tapis ou sur un bouton de place pour s’asseoir.
 - Places libres, personnelles et occupées distinctes. La prise d’une place occupée est rejetée côté serveur.
 - Possibilité de réserver plusieurs cases libres ; sélectionner une de ses cases dans la barre, puis choisir sa mise. Chaque case a sa propre main, sa pile de jetons et son résultat.
@@ -47,6 +47,12 @@ La direction visuelle actuelle est **stylisée et procédurale** : le croupier e
 ![Sélecteur de jetons](docs/visuels/plateforme-jetons.png)
 
 Captures réelles du navigateur : accueil et tables réseau.
+
+## Table bois, cuir et tapis vert
+
+![Table Godot retravaillée](docs/visuels/table-bois-cuir.png)
+
+Capture WebGL de la scène locale de démonstration, sans transactions réseau.
 
 ## Aperçu du rendu
 

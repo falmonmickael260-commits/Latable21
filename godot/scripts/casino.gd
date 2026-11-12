@@ -188,11 +188,11 @@ func _build_room() -> void:
 	add_child(table_light)
 	var fill := OmniLight3D.new()
 	fill.position = Vector3(3, 3, -1.5)
-	fill.light_color = Color("c7dbed")
-	fill.light_energy = .55
+	fill.light_color = Color("dce3db")
+	fill.light_energy = .4
 	fill.omni_range = 8
 	add_child(fill)
-	var wall := _material(Color("101b20"), .05, .85)
+	var wall := _material(Color("141d18"), .05, .85)
 	var brass := _material(Color("8d7653"), .55, .4)
 	_box(Vector3(40, .12, 40), Vector3(0, -.1, 0), _material(Color("0c1216"), .1, .45))
 	_box(Vector3(25, 8, .25), Vector3(0, 3.8, -6), wall)
@@ -224,31 +224,98 @@ func _build_room() -> void:
 	add_child(camera)
 	camera.look_at(Vector3(0, 1.25, -.75))
 
-func _build_table() -> void:
-	var gold := _material(Color("a98c60"), .6, .38)
-	var rail := _material(Color("30271f"), .1, .43)
-	var base := _cylinder(2.65, .22, Vector3(0, .83, 0), rail)
-	base.scale = Vector3(1.06, 1, .70)
-	var rim := _cylinder(2.65, .025, Vector3(0, .95, 0), gold)
-	rim.scale = Vector3(1.06, 1, .70)
-	var cushion := _torus(2.52, .095, Vector3(0, 1.01, 0), _material(Color("17262a"), .05, .43))
-	cushion.scale = Vector3(1.06, .7, .70)
-	var felt_material := _material(Color("103c31"), 0, .98)
+func _table_material(kind: String) -> StandardMaterial3D:
+	var colors := {"felt": [Color("123f31"), Color("194b3a")], "wood": [Color("271a13"), Color("513526")], "leather": [Color("15221d"), Color("24332b")]}
+	var material := _material(colors[kind][0], .0, .94 if kind == "felt" else .34 if kind == "wood" else .57)
 	var noise := FastNoiseLite.new()
-	noise.frequency = .65
-	var texture := NoiseTexture2D.new()
-	texture.width = 512
-	texture.height = 512
-	texture.noise = noise
-	texture.as_normal_map = true
-	felt_material.normal_enabled = true
-	felt_material.normal_texture = texture
-	felt_material.normal_scale = .025
-	var felt := _cylinder(2.43, .03, Vector3(0, FELT_SURFACE_Y - .015, 0), felt_material)
+	noise.seed = 2107
+	noise.frequency = .045 if kind == "wood" else .22
+	noise.fractal_octaves = 3
+	var grain := NoiseTexture2D.new()
+	grain.width = 512
+	grain.height = 512
+	grain.seamless = true
+	grain.noise = noise
+	var gradient := Gradient.new()
+	gradient.set_color(0, colors[kind][0])
+	gradient.set_color(1, colors[kind][1])
+	grain.color_ramp = gradient
+	material.albedo_color = Color.WHITE
+	material.albedo_texture = grain
+	material.uv1_scale = Vector3(1.5, 14, 1) if kind == "wood" else Vector3(48, 48, 1) if kind == "felt" else Vector3(16, 16, 1)
+	var detail := NoiseTexture2D.new()
+	detail.width = 256
+	detail.height = 256
+	detail.seamless = true
+	detail.noise = noise
+	detail.as_normal_map = true
+	material.normal_enabled = true
+	material.normal_texture = detail
+	material.normal_scale = .11 if kind == "leather" else .035
+	return material
+
+func _rail_stitching(radius: float, height: float) -> void:
+	# One mesh for hundreds of short, inset stitches along the oval upholstery.
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in range(420):
+		var a := TAU * index / 420.0
+		var b := a + TAU / 420.0 * .48
+		var from := Vector3(sin(a) * radius * 1.06, height, cos(a) * radius * .70)
+		var to := Vector3(sin(b) * radius * 1.06, height, cos(b) * radius * .70)
+		var side := (to-from).normalized().cross(Vector3.UP) * .0018
+		for vertex in [from-side,to-side,from+side,from+side,to-side,to+side]:
+			surface.set_normal(Vector3.UP)
+			surface.add_vertex(vertex)
+	var stitches := _mesh(surface.commit(), _material(Color("8b8066"), 0, .85), Vector3.ZERO)
+	stitches.name = "RailStitching"
+	stitches.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+func _build_table() -> void:
+	var gold := _material(Color("a38b5f"), .72, .31)
+	var wood := _table_material("wood")
+	var leather := _table_material("leather")
+	var base := _cylinder(2.65, .24, Vector3(0, .87, 0), wood)
+	base.name = "WalnutApron"
+	base.scale = Vector3(1.06, 1, .70)
+	# Recessed lower edge, slender brass reveal and a rounded upholstered rail.
+	var lower_edge := _torus(2.61, .026, Vector3(0, .757, 0), wood)
+	lower_edge.scale = Vector3(1.06, .65, .70)
+	var rim := _cylinder(2.65, .012, Vector3(0, 1.002, 0), gold)
+	rim.scale = Vector3(1.06, 1, .70)
+	var cushion := _torus(2.52, .123, Vector3(0, 1.091, 0), leather)
+	cushion.name = "LeatherArmrest"
+	cushion.scale = Vector3(1.06, .72, .70)
+	_rail_stitching(2.475, 1.174)
+	_rail_stitching(2.565, 1.174)
+	var felt := _cylinder(2.43, .03, Vector3(0, FELT_SURFACE_Y - .015, 0), _table_material("felt"))
 	felt.name = "TableFelt"
 	felt.scale = Vector3(1.06, 1, .70)
-	var pedestal := _cylinder(1.15, .7, Vector3(0, .38, 0), _material(Color("1d231b"), .3))
-	pedestal.scale.x = 1.5
+	# A proper double pedestal, with timber columns and low brass foot plates.
+	for x in [-1.25, 1.25]:
+		var foot := _cylinder(.53, .075, Vector3(x, .075, 0), wood)
+		foot.scale.z = .8
+		var foot_trim := _cylinder(.535, .012, Vector3(x, .115, 0), gold)
+		foot_trim.scale.z = .8
+		_cylinder(.26, .63, Vector3(x, .44, 0), wood)
+		_cylinder(.29, .035, Vector3(x, .73, 0), gold)
+	var foot_rail := _torus(2.26, .025, Vector3(0, .26, 0), gold)
+	foot_rail.scale = Vector3(1.06, 1, .70)
+	for x in [-1.25, 1.25]:
+		for side in [-1, 1]:
+			_segment(Vector3(x, .26, 0), Vector3(x, .26, side * 1.35), .019, gold)
+	var plaque := _box(Vector3(.62, .105, .015), Vector3(0, .875, 1.858), gold)
+	plaque.name = "MakerPlaque"
+	var signature := _label_3d("LA TABLE 21", Vector3(0, .875, 1.868), 32, Color("20251c"))
+	signature.font = FELT_FONT
+	signature.pixel_size = .0021
+	# Quiet perimeter printing frames the playing field without competing with cards.
+	var perimeter: Array[Vector3] = []
+	for step in range(193):
+		var angle := TAU * step / 192.0
+		perimeter.append(Vector3(sin(angle) * 2.375 * 1.06, 1.104, cos(angle) * 2.375 * .70))
+	_printed_curve(perimeter, .003, Color("807e60"))
+
 	_felt_text("LA TABLE 21", Vector3(0, 1.109, -.32), 58, .0020)
 	_felt_arc_text("BLACKJACK PAYS 3 TO 2", 1.3, .015, 104.0)
 	_felt_text("DEALER STANDS ON ALL 17s", Vector3(0, 1.109, .23), 36, .0020)
@@ -281,24 +348,40 @@ func _build_table() -> void:
 		body.add_child(hitbox)
 		add_child(body)
 		var chair_pos := Vector3(pos.x * 1.3, .55, pos.z * 1.5)
-		var chair := _sphere(.38, chair_pos, _material(Color("1c2b2e"), .05, .46))
+		var chair := _sphere(.38, chair_pos, leather)
 		chair.scale = Vector3(1, .22, .9)
-		_cylinder(.06, .5, chair_pos - Vector3(0, .3, 0), gold)
-		var back := _sphere(.4, chair_pos + Vector3(0, .4, .31), _material(Color("1c2b2e"), .05, .46))
+		_cylinder(.045, .5, chair_pos - Vector3(0, .3, 0), gold)
+		var chair_foot := _cylinder(.24, .035, chair_pos - Vector3(0, .53, 0), gold)
+		chair_foot.scale.z = .85
+		var back := _sphere(.4, chair_pos + Vector3(0, .4, .31), leather)
 		back.scale = Vector3(.95, 1, .22)
 		back.rotation.y = _seat_angle(number)
 		seat_chairs[number] = [chair, back]
 	# The card shoe and chip tray are physical props, separate from the dealer.
-	var shoe := _box(Vector3(.5, .25, .65), Vector3(1.15, 1.24, -1.25), _material(Color("2c3932"), .5, .25))
-	shoe.rotation_degrees.y = -15
-	for index in range(8):
-		_box(Vector3(.25, .007, .34), Vector3(1.15, 1.37 + index * .009, -1.25), _material(CREAM))
-	_box(Vector3(1.05, .08, .42), Vector3(-1.2, 1.17, -1.25), _material(Color("0b110e")))
+	var shoe_root := Node3D.new()
+	shoe_root.name = "DealerCardShoe"
+	shoe_root.position = Vector3(1.15, FELT_SURFACE_Y, -1.25)
+	shoe_root.rotation_degrees.y = -15
+	add_child(shoe_root)
+	_box(Vector3(.44, .035, .62), Vector3(0, .018, 0), wood, shoe_root)
+	var shoe_cover := _material(Color("27372e"), .15, .22)
+	for side in [-1, 1]:
+		_box(Vector3(.018, .19, .54), Vector3(side * .21, .11, -.03), shoe_cover, shoe_root)
+	var shoe_lid := _box(Vector3(.44, .025, .42), Vector3(0, .215, -.11), shoe_cover, shoe_root)
+	shoe_lid.rotation_degrees.x = -12
+	for index in range(10):
+		var deck := _box(Vector3(.255, .006, .35), Vector3(0, .05 + index * .009, -.04), _material(CREAM), shoe_root)
+		deck.rotation_degrees.x = -12
+	_box(Vector3(.28, .007, .09), Vector3(0, .045, .245), gold, shoe_root)
+	# Five separated wells hold neat stacks of casino chips.
+	_box(Vector3(1.13, .045, .40), Vector3(-1.2, 1.132, -1.25), wood)
 	for column in range(5):
-		for layer in range(3):
-			var coin := _chip_coin([100, 200, 300, 400, 500][column], layer == 2)
+		var center_x := -1.62 + column * .21
+		_box(Vector3(.19, .012, .34), Vector3(center_x, 1.163, -1.25), _material(Color("09140f")))
+		for layer in range(5):
+			var coin := _chip_coin([100, 200, 300, 400, 500][column], layer == 4)
 			add_child(coin)
-			coin.position = Vector3(-1.6 + column * .2, 1.21 + layer * CHIP_HEIGHT, -1.25)
+			coin.position = Vector3(center_x, 1.172 + layer * CHIP_HEIGHT, -1.25)
 
 func _felt_text(text_value: String, at: Vector3, size_value: int, pixel_size_value: float) -> Label3D:
 	var label := _label_3d(text_value, at, size_value, Color("c0b18c"))
