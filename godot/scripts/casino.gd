@@ -66,6 +66,9 @@ var demo_mode := false
 var compact := false
 var mobile_camera_seat := 0
 var mobile_camera_hand := 0
+var mobile_view: TextureRect
+var mobile_viewport: SubViewport
+var ui_root: Control
 var embedded_mode := false
 var status_row: HBoxContainer
 var chip_button_textures: Dictionary = {}
@@ -115,6 +118,10 @@ func _ready() -> void:
 		_join()
 	get_viewport().size_changed.connect(_adapt_view)
 	_adapt_view()
+
+func _exit_tree() -> void:
+	var viewport := get_viewport()
+	if viewport and mobile_view: viewport.disable_3d = false
 
 func _material(color: Color, metal := 0.0, roughness := 0.7) -> StandardMaterial3D:
 	var result := StandardMaterial3D.new()
@@ -794,6 +801,21 @@ func _build_ui() -> void:
 	theme.default_font_size = 14
 	ui.theme = theme
 	canvas.add_child(ui)
+	ui_root = ui
+	mobile_view = TextureRect.new()
+	mobile_view.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	mobile_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mobile_view.stretch_mode = TextureRect.STRETCH_SCALE
+	mobile_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mobile_view.visible = false
+	ui.add_child(mobile_view)
+	mobile_viewport = SubViewport.new()
+	mobile_viewport.world_3d = get_world_3d()
+	mobile_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	mobile_viewport.msaa_3d = Viewport.MSAA_4X
+	mobile_view.add_child(mobile_viewport)
+	mobile_view.texture = mobile_viewport.get_texture()
+	ui.resized.connect(_update_mobile_view_rect)
 	var top := MarginContainer.new()
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	top.add_theme_constant_override("margin_left", 24)
@@ -837,6 +859,7 @@ func _build_ui() -> void:
 	bottom.add_theme_constant_override("margin_bottom", 16)
 	ui.add_child(bottom)
 	controls_panel = PanelContainer.new()
+	controls_panel.resized.connect(_update_mobile_view_rect)
 	controls_panel.add_theme_stylebox_override("panel", _style_panel(Color(.025, .055, .04, .94)))
 	bottom.add_child(controls_panel)
 	var column := VBoxContainer.new()
@@ -993,18 +1016,18 @@ func _move_camera() -> void:
 	var target := Vector3(0,1.28,-.25)
 	camera.fov = 68
 	if compact:
-		# Portrait frames the player's hand and the dealer, not the entire room.
-		# The seven seats remain accessible in the seat controls below the table.
+		# A close three-quarter view keeps the dealer and room in frame.
+		# Its own viewport leaves the controls outside the rendered playing area.
 		mobile_camera_seat = _mobile_focus_number()
 		mobile_camera_hand = _mobile_focus_hand_index(mobile_camera_seat)
 		var hand := _seat_position(mobile_camera_seat)+Vector3(0,0,-.32)
 		for seat in table.get("seats",[]):
 			if int(seat.seatNumber) == mobile_camera_seat and seat.get("hands",[]).size() > 1:
 				hand.x += (mobile_camera_hand-(seat.hands.size()-1)/2.0)*.85
-		target = Vector3(lerpf(-.12,hand.x,.78),1.12,lerpf(-.8,hand.z,.5)+.50)
+		target = Vector3(lerpf(-.12,hand.x,.65),1.70,lerpf(-.8,hand.z,.5)+.10)
 		angle = _seat_angle(mobile_camera_seat)*.55
-		destination = Vector3(target.x+sin(angle)*2.15,4.25,target.z+cos(angle)*2.15)
-		camera.fov = 46
+		destination = Vector3(target.x+sin(angle)*3.75,3.05,target.z+cos(angle)*3.75)
+		camera.fov = 68
 	else: mobile_camera_seat = 0
 	for number in seat_chairs:
 		for mesh in seat_chairs[number]:
@@ -1012,6 +1035,17 @@ func _move_camera() -> void:
 	var target_transform := Transform3D(Basis(),destination).looking_at(target)
 	camera_tween = create_tween()
 	camera_tween.tween_property(camera,"transform",target_transform,.01 if reduced_motion else .65).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+
+func _update_mobile_view_rect() -> void:
+	if not mobile_view or not ui_root or not controls_panel: return
+	var top := 0.0 if embedded_mode else 120.0
+	var bottom := controls_panel.get_global_rect().position.y-10.0
+	if bottom < top+200: bottom = ui_root.size.y*.75
+	mobile_view.position = Vector2(0,top)
+	mobile_view.size = Vector2(ui_root.size.x,maxf(200,bottom-top))
+	# Render at the actual phone pixel density, avoiding a blurred enlarged viewport texture.
+	var raster_scale := clampf(float(get_window().size.x)/maxf(1,ui_root.size.x),.75,2.5)
+	mobile_viewport.size = Vector2i(mobile_view.size*raster_scale)
 
 func _adapt_view() -> void:
 	var size_value := get_window().size
@@ -1023,8 +1057,16 @@ func _adapt_view() -> void:
 		for button in status_row.get_children():
 			if button is Button:
 				button.add_theme_font_size_override("font_size", 11 if compact else 14)
-	if camera:
+	if camera and mobile_view:
+		mobile_view.visible = compact
+		mobile_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if compact else SubViewport.UPDATE_DISABLED
+		var camera_parent: Node = mobile_viewport if compact else self
+		if camera.get_parent() != camera_parent: camera.reparent(camera_parent,false)
+		camera.make_current()
+		get_viewport().disable_3d = compact
+		_update_mobile_view_rect()
 		_move_camera()
+		if not table.is_empty(): _sync_scene()
 	if seat_bar:
 		_refresh_ui()
 
@@ -1125,16 +1167,16 @@ func _sync_scene() -> void:
 		for hand_index in hands.size():
 			var hand: Dictionary = hands[hand_index]
 			var pos := _seat_position(number) + Vector3((hand_index - (hands.size() - 1) / 2.0) * .85, .025, -.32)
-			_sync_hand(hand.get("cards", []), pos, live_cards, false)
+			_sync_hand(hand.get("cards", []), pos, live_cards, false,1.60 if compact else 1.0)
 			if not hand.get("cards", []).is_empty():
-				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), Vector3(pos.x, FELT_SURFACE_Y + .25, pos.z - .25), live_totals)
+				_sync_total("seat-%s-%s" % [number, hand_index], _hand_total(hand.cards), Vector3(pos.x, FELT_SURFACE_Y + (.38 if compact else .25), pos.z - .25), live_totals)
 			var chip_id := "%s-%s" % [number, hand_index]
 			var bet_amount := int(hand.get("bet", 0))
 			if bet_amount > 0:
 				live_chips[chip_id] = true
 				if not chips.has(chip_id) or chips[chip_id].get_meta("amount") != bet_amount:
 					if chips.has(chip_id): chips[chip_id].queue_free()
-					chips[chip_id] = _create_chip(bet_amount, pos + Vector3(0, .02, .4), has_initial_state)
+					chips[chip_id] = _create_chip(bet_amount, pos + Vector3(0, .02, .46 if compact else .4), has_initial_state)
 		# Seat numbers are ink on the felt; ownership stays in the controls.
 		label.text = str(number)
 		label.modulate = Color("ded0aa")
@@ -1142,13 +1184,13 @@ func _sync_scene() -> void:
 		seat_rings[number].material_override = _felt_ink(Color("c9b98f") if own else Color("a5a180") if empty else Color("797b6b"))
 
 	var dealer: Dictionary = table.get("dealer", {})
-	_sync_hand(dealer.get("cards", []), Vector3(-.12, 1.14, -.8), live_cards, not dealer.get("holeCardRevealed", false))
+	_sync_hand(dealer.get("cards", []), Vector3(-.12, 1.14, -.8), live_cards, not dealer.get("holeCardRevealed", false),1.85 if compact else 1.0)
 	var visible_dealer: Array = []
 	for index in dealer.get("cards", []).size():
 		if index != 1 or dealer.get("holeCardRevealed", false):
 			visible_dealer.append(dealer.cards[index])
 	if not visible_dealer.is_empty():
-		_sync_total("dealer", _hand_total(visible_dealer), Vector3(-.12, FELT_SURFACE_Y + .25, -1.12), live_totals, dealer.get("cards", []).size() > visible_dealer.size())
+		_sync_total("dealer", _hand_total(visible_dealer), Vector3(-.12, FELT_SURFACE_Y + (.40 if compact else .25), -1.12), live_totals, dealer.get("cards", []).size() > visible_dealer.size())
 	for id in hand_totals.keys():
 		if not live_totals.has(id):
 			hand_totals[id].queue_free()
@@ -1196,20 +1238,21 @@ func _sync_total(id: String, total: int, at: Vector3, live: Dictionary, hidden_c
 		hand_totals[id] = label
 	var label: Label3D = hand_totals[id]
 	label.position = at
+	label.pixel_size = .0033 if compact else .0027
 	label.text = str(total) + (" + ?" if hidden_card else "")
 	label.modulate = Color("f08c86") if total > 21 else Color("fff2d8")
 
-func _sync_hand(hand_cards: Array, origin: Vector3, live: Dictionary, hide_second: bool) -> void:
+func _sync_hand(hand_cards: Array, origin: Vector3, live: Dictionary, hide_second: bool, display_scale := 1.0) -> void:
 	# Reveal both values on a normal two-card hand. Longer hands fan more
 	# tightly to stay within their case, preserving the corner index.
 	var count := hand_cards.size()
-	var spacing := minf(.285, .52 / maxf(1, count - 1))
+	var spacing := minf(.24 if compact else .285, .46 / maxf(1, count - 1) if compact else .52 / maxf(1,count-1))*display_scale
 	for index in count:
 		var card: Dictionary = hand_cards[index]
 		var id := str(card.id)
 		live[id] = true
 		var destination := origin + Vector3((index - (count - 1) / 2.0) * spacing, 0, index * .015)
-		destination.y = FELT_SURFACE_Y + sin(CARD_TILT) * .21 + cos(CARD_TILT) * .0014 + .0005 + index * .0031
+		destination.y = FELT_SURFACE_Y + (sin(CARD_TILT)*.21+cos(CARD_TILT)*.0014)*display_scale + .0005 + index*.0031*display_scale
 		var hidden := hide_second and index == 1
 		if not cards.has(id):
 			cards[id] = _create_card(card, destination, hidden, animated_cards.has(id))
@@ -1224,6 +1267,7 @@ func _sync_hand(hand_cards: Array, origin: Vector3, live: Dictionary, hide_secon
 			flip.tween_callback(func(): if is_instance_valid(cards.get(id)): cards[id].set_meta("flying", false))
 		elif not cards[id].get_meta("flying", false):
 			cards[id].position = destination
+		cards[id].scale = Vector3.ONE*display_scale
 
 func _card_stock(parent: Node3D) -> void:
 	# A thin rounded card, rather than a rectangular box with sharp corners.
@@ -1404,8 +1448,14 @@ func _on_results(results: Array) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var from := camera.project_ray_origin(event.position)
-		var to := from + camera.project_ray_normal(event.position) * 100
+		var point: Vector2 = event.position
+		if compact and mobile_view:
+			var local_event := mobile_view.make_input_local(event)
+			point = local_event.position
+			if not Rect2(Vector2.ZERO,mobile_view.size).has_point(point): return
+			point *= Vector2(mobile_viewport.size)/mobile_view.size
+		var from := camera.project_ray_origin(point)
+		var to := from + camera.project_ray_normal(point) * 100
 		var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from, to))
 		if not hit.is_empty() and hit.collider.has_meta("seat"):
 			_select_seat(int(hit.collider.get_meta("seat")))
