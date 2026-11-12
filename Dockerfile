@@ -3,23 +3,18 @@ FROM node:24-bookworm-slim AS build
 WORKDIR /app
 ARG GODOT_VERSION=4.6.3
 ENV NEXT_TELEMETRY_DISABLED=1
-# Godot and its web template are build tools only. Optional CA supports managed builders.
-RUN --mount=type=secret,id=proxy_ca \
-    apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip libfontconfig1 libgl1 libxcursor1 libxinerama1 libxrandr2 libxi6 libasound2 && rm -rf /var/lib/apt/lists/*
-RUN --mount=type=secret,id=proxy_ca \
-    if [ -f /run/secrets/proxy_ca ]; then export CURL_CA_BUNDLE=/run/secrets/proxy_ca; fi; \
-    curl -fL --retry 3 "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip" -o /tmp/godot.zip && \
+# Godot and its web template are build tools only.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip libfontconfig1 libgl1 libxcursor1 libxinerama1 libxrandr2 libxi6 libasound2 && rm -rf /var/lib/apt/lists/*
+RUN curl -fL --retry 3 "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip" -o /tmp/godot.zip && \
     unzip -p /tmp/godot.zip > /usr/local/bin/godot && chmod +x /usr/local/bin/godot && \
     curl -fL --retry 3 "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -o /tmp/templates.tpz && \
     mkdir -p /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable && \
     unzip -p /tmp/templates.tpz templates/web_nothreads_release.zip > /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable/web_nothreads_release.zip && \
     rm /tmp/godot.zip /tmp/templates.tpz
 COPY package.json package-lock.json ./
-RUN --mount=type=secret,id=proxy_ca \
-    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; npm ci
+RUN npm ci
 COPY . .
-RUN --mount=type=secret,id=proxy_ca \
-    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; npm run build
+RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
